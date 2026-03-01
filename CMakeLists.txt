@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(VisualSafety VERSION 0.1 LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Quick)
@@ -9,13 +10,36 @@ find_package(Qt6 REQUIRED COMPONENTS Quick)
 qt_standard_project_setup(REQUIRES 6.8)
 
 qt_add_executable(appVisualSafety
-    main.cpp
+    src/main.cpp
+    src/core/securitycontroller.cpp
+    src/core/thememanager.cpp
+    src/icons/emojiicons.cpp
 )
 
 qt_add_qml_module(appVisualSafety
     URI VisualSafety
     QML_FILES
-        Main.qml
+        qml/Main.qml
+        qml/components/MetricCard.qml
+        qml/components/SectionCard.qml
+        qml/components/StatusTag.qml
+        qml/components/ThemedButton.qml
+        qml/components/ThemedTextField.qml
+        qml/components/ThemedSwitch.qml
+        qml/components/ThemedComboBox.qml
+        qml/pages/ActionsPage.qml
+        qml/pages/AlertsPage.qml
+        qml/pages/AppsPage.qml
+        qml/pages/CredentialsPage.qml
+        qml/pages/LogsPage.qml
+        qml/pages/NetworkPage.qml
+        qml/pages/OverviewPage.qml
+        qml/pages/PermissionsPage.qml
+        qml/pages/PortsPage.qml
+    SOURCES
+        src/core/securitycontroller.h
+        src/core/thememanager.h
+        src/icons/emojiicons.h
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
