@@ -84,7 +84,7 @@ ScrollView {
                         }
 
                         Label {
-                            text: modelData.mbps + " Mbps"
+                            text: modelData.mbps + " MB"
                             color: Theme.textSecondary
                             Layout.preferredWidth: 100
                         }
@@ -125,7 +125,61 @@ ScrollView {
                     onToggled: Security.smsNotify = checked
                 }
             }
+
+            GridLayout {
+                columns: 2
+                Layout.fillWidth: true
+                columnSpacing: 8
+                rowSpacing: 8
+
+                ThemedTextField {
+                    Layout.fillWidth: true
+                    placeholderText: "SMTP 服务器"
+                    text: Security.smtpServer
+                    onEditingFinished: Security.smtpServer = text
+                }
+
+                ThemedTextField {
+                    Layout.fillWidth: true
+                    placeholderText: "SMTP 端口"
+                    text: String(Security.smtpPort)
+                    inputMethodHints: Qt.ImhDigitsOnly
+                    onEditingFinished: Security.smtpPort = Number(text)
+                }
+
+                ThemedTextField {
+                    Layout.fillWidth: true
+                    placeholderText: "发件人"
+                    text: Security.smtpSender
+                    onEditingFinished: Security.smtpSender = text
+                }
+
+                ThemedTextField {
+                    Layout.fillWidth: true
+                    placeholderText: "收件人"
+                    text: Security.smtpRecipient
+                    onEditingFinished: Security.smtpRecipient = text
+                }
+
+                ThemedTextField {
+                    Layout.fillWidth: true
+                    placeholderText: "短信 Webhook URL"
+                    text: Security.smsWebhookUrl
+                    onEditingFinished: Security.smsWebhookUrl = text
+                }
+
+                ThemedTextField {
+                    Layout.fillWidth: true
+                    placeholderText: "短信接收标识"
+                    text: Security.smsRecipient
+                    onEditingFinished: Security.smsRecipient = text
+                }
+            }
+
+            ThemedButton {
+                text: "测试通知"
+                onClicked: Security.testNotifications()
+            }
         }
     }
 }
-

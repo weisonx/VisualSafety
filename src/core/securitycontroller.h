@@ -1,6 +1,8 @@
-#pragma once
+﻿#pragma once
 
 #include <QObject>
+#include <QSet>
+#include <QString>
 #include <QVariantList>
 
 class SecurityController final : public QObject
@@ -23,6 +25,16 @@ class SecurityController final : public QObject
     Q_PROPERTY(bool desktopNotify READ desktopNotify WRITE setDesktopNotify NOTIFY notifySettingsChanged)
     Q_PROPERTY(bool emailNotify READ emailNotify WRITE setEmailNotify NOTIFY notifySettingsChanged)
     Q_PROPERTY(bool smsNotify READ smsNotify WRITE setSmsNotify NOTIFY notifySettingsChanged)
+    Q_PROPERTY(QString smtpServer READ smtpServer WRITE setSmtpServer NOTIFY notifySettingsChanged)
+    Q_PROPERTY(int smtpPort READ smtpPort WRITE setSmtpPort NOTIFY notifySettingsChanged)
+    Q_PROPERTY(QString smtpSender READ smtpSender WRITE setSmtpSender NOTIFY notifySettingsChanged)
+    Q_PROPERTY(QString smtpRecipient READ smtpRecipient WRITE setSmtpRecipient NOTIFY notifySettingsChanged)
+    Q_PROPERTY(QString smsWebhookUrl READ smsWebhookUrl WRITE setSmsWebhookUrl NOTIFY notifySettingsChanged)
+    Q_PROPERTY(QString smsRecipient READ smsRecipient WRITE setSmsRecipient NOTIFY notifySettingsChanged)
+    Q_PROPERTY(bool autoBlockHighRiskPorts READ autoBlockHighRiskPorts WRITE setAutoBlockHighRiskPorts NOTIFY policyChanged)
+    Q_PROPERTY(bool autoKillUntrustedShell READ autoKillUntrustedShell WRITE setAutoKillUntrustedShell NOTIFY policyChanged)
+    Q_PROPERTY(QString processWhitelist READ processWhitelist WRITE setProcessWhitelist NOTIFY policyChanged)
+    Q_PROPERTY(QString processBlacklist READ processBlacklist WRITE setProcessBlacklist NOTIFY policyChanged)
 
 public:
     explicit SecurityController(QObject *parent = nullptr);
@@ -48,6 +60,27 @@ public:
     void setEmailNotify(bool value);
     bool smsNotify() const;
     void setSmsNotify(bool value);
+    QString smtpServer() const;
+    void setSmtpServer(const QString &value);
+    int smtpPort() const;
+    void setSmtpPort(int value);
+    QString smtpSender() const;
+    void setSmtpSender(const QString &value);
+    QString smtpRecipient() const;
+    void setSmtpRecipient(const QString &value);
+    QString smsWebhookUrl() const;
+    void setSmsWebhookUrl(const QString &value);
+    QString smsRecipient() const;
+    void setSmsRecipient(const QString &value);
+
+    bool autoBlockHighRiskPorts() const;
+    void setAutoBlockHighRiskPorts(bool value);
+    bool autoKillUntrustedShell() const;
+    void setAutoKillUntrustedShell(bool value);
+    QString processWhitelist() const;
+    void setProcessWhitelist(const QString &value);
+    QString processBlacklist() const;
+    void setProcessBlacklist(const QString &value);
 
     Q_INVOKABLE void refreshData();
     Q_INVOKABLE void forceQuitApp(const QString &name);
@@ -55,17 +88,46 @@ public:
     Q_INVOKABLE void shutdownNow();
     Q_INVOKABLE void restartNow();
     Q_INVOKABLE void addManualLog(const QString &level, const QString &message);
+    Q_INVOKABLE void testNotifications();
+    Q_INVOKABLE void applyPolicyNow();
+    Q_INVOKABLE bool exportLogs(const QString &filePath);
 
 signals:
     void dataChanged();
     void logsChanged();
     void statusChanged();
     void notifySettingsChanged();
+    void policyChanged();
 
 private:
+    bool isRunningAsAdmin() const;
+    QString nowStamp() const;
+    QString sanitizeRuleName(const QString &value) const;
+    QString psQuote(const QString &value) const;
+    QStringList splitCsvValues(const QString &value) const;
+    bool containsInCsv(const QString &csv, const QString &name) const;
+    bool isSensitiveShellProcess(const QString &name) const;
+    bool isBlacklisted(const QString &name) const;
+    bool isWhitelisted(const QString &name) const;
+    bool blockPort(int port, QString *detail);
+    bool terminateProcess(const QString &name, QString *detail);
+    void sendDesktopNotification(const QString &title, const QString &detail);
+    void sendEmailNotification(const QString &title, const QString &detail);
+    void sendSmsNotification(const QString &title, const QString &detail);
+    void runPolicyEngine();
+
     void appendLog(const QString &level, const QString &message);
     void appendAlert(const QString &severity, const QString &title, const QString &detail);
-    QString nowStamp() const;
+
+    QVariantList scanAppMonitors() const;
+    QVariantList scanPorts(const QVariantList &apps) const;
+    QVariantList scanCredentials() const;
+    QVariantList scanFirewallRules() const;
+    QVariantList scanTraffic() const;
+    QVariantList deriveAppPermissions(const QVariantList &apps, const QVariantList &ports) const;
+    QVariantList deriveHighRiskPermissions(const QVariantList &apps, const QVariantList &ports) const;
+    QVariantList derivePermissions(const QVariantList &firewallRules, bool isAdmin) const;
+    QVariantList deriveAlerts(const QVariantList &highRiskPermissions, const QVariantList &traffic) const;
 
     QVariantList m_permissions;
     QVariantList m_appPermissions;
@@ -78,8 +140,21 @@ private:
     QVariantList m_logs;
     QVariantList m_appMonitors;
     QString m_lastAction;
+    QString m_logFilePath;
     int m_blockedActionCount = 0;
     bool m_desktopNotify = true;
     bool m_emailNotify = true;
     bool m_smsNotify = false;
+    QString m_smtpServer = "smtp.example.com";
+    int m_smtpPort = 25;
+    QString m_smtpSender = "visualsafety@example.com";
+    QString m_smtpRecipient;
+    QString m_smsWebhookUrl;
+    QString m_smsRecipient;
+    bool m_autoBlockHighRiskPorts = true;
+    bool m_autoKillUntrustedShell = false;
+    QString m_processWhitelist = "explorer.exe,svchost.exe,msmpeng.exe";
+    QString m_processBlacklist = "powershell.exe,pwsh.exe,cmd.exe,wscript.exe,cscript.exe,mshta.exe";
+    QSet<int> m_policyBlockedPorts;
+    QSet<QString> m_policyTerminatedApps;
 };

@@ -13,6 +13,48 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
+            title: "策略引擎"
+            icon: Icons.block
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 16
+
+                ThemedSwitch {
+                    text: "自动阻断高危端口"
+                    checked: Security.autoBlockHighRiskPorts
+                    onToggled: Security.autoBlockHighRiskPorts = checked
+                }
+
+                ThemedSwitch {
+                    text: "自动终止不可信 Shell"
+                    checked: Security.autoKillUntrustedShell
+                    onToggled: Security.autoKillUntrustedShell = checked
+                }
+            }
+
+            ThemedTextField {
+                Layout.fillWidth: true
+                placeholderText: "白名单进程 (逗号分隔)"
+                text: Security.processWhitelist
+                onEditingFinished: Security.processWhitelist = text
+            }
+
+            ThemedTextField {
+                Layout.fillWidth: true
+                placeholderText: "黑名单进程 (逗号分隔)"
+                text: Security.processBlacklist
+                onEditingFinished: Security.processBlacklist = text
+            }
+
+            ThemedButton {
+                text: "立即执行策略"
+                onClicked: Security.applyPolicyNow()
+            }
+        }
+
+        SectionCard {
+            Layout.fillWidth: true
             title: "安全告警与异常行为"
             icon: Icons.alert
 
@@ -37,7 +79,7 @@ ScrollView {
                             Label {
                                 text: modelData.time
                                 color: Theme.textSecondary
-                                Layout.preferredWidth: 70
+                                Layout.preferredWidth: 140
                             }
 
                             Label {
@@ -67,4 +109,3 @@ ScrollView {
         }
     }
 }
-

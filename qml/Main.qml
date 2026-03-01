@@ -2,6 +2,7 @@
 import QtQuick.Controls
 import QtQuick.Layouts
 import "components"
+import "pages"
 
 ApplicationWindow {
     id: root
@@ -27,15 +28,15 @@ ApplicationWindow {
     property int currentIndex: 0
 
     readonly property var pages: [
-        { title: "总览", icon: Icons.dashboard, source: "pages/OverviewPage.qml" },
-        { title: "权限", icon: Icons.permission, source: "pages/PermissionsPage.qml" },
-        { title: "凭证", icon: Icons.credential, source: "pages/CredentialsPage.qml" },
-        { title: "端口", icon: Icons.port, source: "pages/PortsPage.qml" },
-        { title: "网络", icon: Icons.network, source: "pages/NetworkPage.qml" },
-        { title: "告警", icon: Icons.alert, source: "pages/AlertsPage.qml" },
-        { title: "日志", icon: Icons.log, source: "pages/LogsPage.qml" },
-        { title: "应用", icon: Icons.app, source: "pages/AppsPage.qml" },
-        { title: "处置", icon: Icons.power, source: "pages/ActionsPage.qml" }
+        { title: "总览", icon: Icons.dashboard },
+        { title: "权限", icon: Icons.permission },
+        { title: "凭证", icon: Icons.credential },
+        { title: "端口", icon: Icons.port },
+        { title: "网络", icon: Icons.network },
+        { title: "告警", icon: Icons.alert },
+        { title: "日志", icon: Icons.log },
+        { title: "应用", icon: Icons.app },
+        { title: "处置", icon: Icons.power }
     ]
 
     header: Rectangle {
@@ -120,11 +121,20 @@ ApplicationWindow {
             Layout.fillHeight: true
             color: Theme.windowBg
 
-            Loader {
-                id: pageLoader
+            StackLayout {
                 anchors.fill: parent
                 anchors.margins: 14
-                source: root.pages[root.currentIndex].source
+                currentIndex: root.currentIndex
+
+                OverviewPage {}
+                PermissionsPage {}
+                CredentialsPage {}
+                PortsPage {}
+                NetworkPage {}
+                AlertsPage {}
+                LogsPage {}
+                AppsPage {}
+                ActionsPage {}
             }
         }
     }

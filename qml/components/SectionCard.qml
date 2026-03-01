@@ -6,7 +6,7 @@ Pane {
     id: root
     property string title: ""
     property string icon: ""
-    default property alias contentData: contentColumn.data
+    default property alias sectionContent: contentColumn.data
 
     background: Rectangle {
         radius: 12

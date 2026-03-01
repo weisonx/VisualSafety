@@ -5,6 +5,34 @@ import "../components"
 
 Item {
     id: root
+    property var filteredLogs: []
+
+    function rebuildLogs() {
+        const level = levelFilter.currentText
+        const keyword = keywordInput.text.trim().toLowerCase()
+        const source = Security.logs
+        const out = []
+
+        for (let i = 0; i < source.length; ++i) {
+            const row = source[i]
+            if (level !== "ALL" && row.level !== level)
+                continue
+            if (keyword.length > 0 && row.message.toLowerCase().indexOf(keyword) === -1)
+                continue
+            out.push(row)
+            if (out.length >= 400)
+                break
+        }
+
+        filteredLogs = out
+    }
+
+    Connections {
+        target: Security
+        function onLogsChanged() { root.rebuildLogs() }
+    }
+
+    Component.onCompleted: rebuildLogs()
 
     ColumnLayout {
         anchors.fill: parent
@@ -32,6 +60,29 @@ Item {
             }
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            ThemedComboBox {
+                id: levelFilter
+                model: ["ALL", "INFO", "WARN", "ALERT", "CRITICAL", "ERROR"]
+                currentIndex: 0
+                onCurrentTextChanged: root.rebuildLogs()
+            }
+            ThemedTextField {
+                id: keywordInput
+                Layout.fillWidth: true
+                placeholderText: "按关键字筛选日志"
+                onTextChanged: root.rebuildLogs()
+            }
+            ThemedButton {
+                text: "导出日志"
+                onClicked: {
+                    const path = "./build/visualsafety-export.log"
+                    Security.exportLogs(path)
+                }
+            }
+        }
+
         SectionCard {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -42,7 +93,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                model: Security.logs
+                model: root.filteredLogs
                 spacing: 6
 
                 delegate: Rectangle {
@@ -58,12 +109,12 @@ Item {
                         Label {
                             text: modelData.time
                             color: Theme.textSecondary
-                            Layout.preferredWidth: 70
+                            Layout.preferredWidth: 140
                         }
 
                         StatusTag {
                             text: modelData.level
-                            tone: modelData.level === "CRITICAL" || modelData.level === "ALERT" ? "danger"
+                            tone: modelData.level === "CRITICAL" || modelData.level === "ALERT" || modelData.level === "ERROR" ? "danger"
                                 : modelData.level === "WARN" ? "warning" : "normal"
                         }
 
@@ -79,4 +130,3 @@ Item {
         }
     }
 }
-
