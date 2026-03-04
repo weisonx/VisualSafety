@@ -3,13 +3,18 @@ import QtQuick.Controls
 
 ComboBox {
     id: root
+    implicitHeight: 34
+    leftPadding: 10
+    rightPadding: 28
+    topPadding: 7
+    bottomPadding: 7
 
     contentItem: Label {
         text: root.displayText
         color: Theme.inputText
+        height: root.implicitHeight
         verticalAlignment: Text.AlignVCenter
-        leftPadding: 10
-        rightPadding: 24
+        elide: Text.ElideRight
     }
 
     background: Rectangle {
