@@ -13,7 +13,7 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "应用监控列表"
+            title: I18n.tr("应用监控列表", "App Monitor List")
             icon: Icons.app
 
             Repeater {
@@ -60,7 +60,7 @@ ScrollView {
                             }
 
                             ThemedButton {
-                                text: Icons.kill + " 强制退出"
+                                text: Icons.kill + " " + I18n.tr("强制退出", "Force Quit")
                                 enabled: modelData.status === "Running"
                                 onClicked: Security.forceQuitApp(modelData.app)
                             }

@@ -13,7 +13,7 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "密钥与凭证"
+            title: I18n.tr("密钥与凭证", "Secrets & Credentials")
             icon: Icons.credential
 
             Repeater {
@@ -45,7 +45,7 @@ ScrollView {
                         }
 
                         Label {
-                            text: "到期: " + modelData.expires
+                            text: I18n.tr("到期: ", "Expires: ") + modelData.expires
                             color: Theme.textSecondary
                             Layout.fillWidth: true
                         }

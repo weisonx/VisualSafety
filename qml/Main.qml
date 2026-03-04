@@ -11,7 +11,7 @@ ApplicationWindow {
     minimumWidth: 1120
     minimumHeight: 720
     visible: true
-    title: "VisualSafety Security Console"
+    title: I18n.tr("VisualSafety 安全控制台", "VisualSafety Security Console")
     color: Theme.windowBg
 
     palette.window: Theme.windowBg
@@ -28,15 +28,15 @@ ApplicationWindow {
     property int currentIndex: 0
 
     readonly property var pages: [
-        { title: "总览", icon: Icons.dashboard },
-        { title: "权限", icon: Icons.permission },
-        { title: "凭证", icon: Icons.credential },
-        { title: "端口", icon: Icons.port },
-        { title: "网络", icon: Icons.network },
-        { title: "告警", icon: Icons.alert },
-        { title: "日志", icon: Icons.log },
-        { title: "应用", icon: Icons.app },
-        { title: "处置", icon: Icons.power }
+        { title: I18n.tr("总览", "Overview"), icon: Icons.dashboard },
+        { title: I18n.tr("权限", "Permissions"), icon: Icons.permission },
+        { title: I18n.tr("凭证", "Credentials"), icon: Icons.credential },
+        { title: I18n.tr("端口", "Ports"), icon: Icons.port },
+        { title: I18n.tr("网络", "Network"), icon: Icons.network },
+        { title: I18n.tr("告警", "Alerts"), icon: Icons.alert },
+        { title: I18n.tr("日志", "Logs"), icon: Icons.log },
+        { title: I18n.tr("应用", "Apps"), icon: Icons.app },
+        { title: I18n.tr("处置", "Actions"), icon: Icons.power }
     ]
 
     header: Rectangle {
@@ -58,7 +58,7 @@ ApplicationWindow {
 
             Label {
                 Layout.leftMargin: 10
-                text: "当前动作: " + Security.lastAction
+                text: I18n.tr("当前动作: ", "Action: ") + Security.lastAction
                 color: Theme.textSecondary
                 font.pixelSize: 13
                 Layout.fillWidth: true
@@ -66,14 +66,34 @@ ApplicationWindow {
             }
 
             ThemedButton {
-                text: Icons.refresh + " 刷新"
+                text: Icons.refresh + " " + I18n.tr("刷新", "Refresh")
                 Layout.alignment: Qt.AlignVCenter
                 onClicked: Security.refreshData()
             }
 
+            ThemedComboBox {
+                id: languageBox
+                Layout.alignment: Qt.AlignVCenter
+                model: I18n.languages
+                textRole: "name"
+                valueRole: "code"
+                implicitWidth: 120
+                Component.onCompleted: currentIndex = I18n.indexOfLanguage(I18n.language)
+                Connections {
+                    target: I18n
+                    function onLanguageChanged() {
+                        const idx = I18n.indexOfLanguage(I18n.language)
+                        if (languageBox.currentIndex !== idx)
+                            languageBox.currentIndex = idx
+                    }
+                }
+                onActivated: I18n.language = currentValue
+            }
+
             ThemedSwitch {
                 checked: Theme.darkTheme
-                text: checked ? (Icons.theme + " 深色") : (Icons.theme + " 浅色")
+                text: checked ? (Icons.theme + " " + I18n.tr("深色", "Dark"))
+                              : (Icons.theme + " " + I18n.tr("浅色", "Light"))
                 Layout.alignment: Qt.AlignVCenter
                 onToggled: Theme.darkTheme = checked
             }

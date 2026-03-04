@@ -11,7 +11,7 @@ Button {
 
     contentItem: Label {
         text: root.text
-        color: Theme.controlText
+        color: root.down ? Theme.controlText : (Theme.darkTheme ? "#cfd8e3" : Theme.textPrimary)
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         font.pixelSize: 13
@@ -20,8 +20,8 @@ Button {
 
     background: Rectangle {
         radius: 8
-        color: root.down ? Theme.accentColor : (root.hovered ? Theme.controlBgHover : Theme.controlBg)
+        color: root.down ? Theme.accentColor : Theme.controlBg
         border.width: 1
-        border.color: root.down ? Theme.accentColor : Theme.borderColor
+        border.color: root.down ? Theme.accentColor : (root.hovered ? Theme.accentColor : Theme.borderColor)
     }
 }

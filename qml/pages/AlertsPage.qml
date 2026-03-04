@@ -13,7 +13,7 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "策略引擎"
+            title: I18n.tr("策略引擎", "Policy Engine")
             icon: Icons.block
 
             RowLayout {
@@ -21,13 +21,13 @@ ScrollView {
                 spacing: 16
 
                 ThemedSwitch {
-                    text: "自动阻断高危端口"
+                    text: I18n.tr("自动阻断高危端口", "Auto-block high-risk ports")
                     checked: Security.autoBlockHighRiskPorts
                     onToggled: Security.autoBlockHighRiskPorts = checked
                 }
 
                 ThemedSwitch {
-                    text: "自动终止不可信 Shell"
+                    text: I18n.tr("自动终止不可信 Shell", "Auto-kill untrusted shells")
                     checked: Security.autoKillUntrustedShell
                     onToggled: Security.autoKillUntrustedShell = checked
                 }
@@ -35,27 +35,27 @@ ScrollView {
 
             ThemedTextField {
                 Layout.fillWidth: true
-                placeholderText: "白名单进程 (逗号分隔)"
+                placeholderText: I18n.tr("白名单进程 (逗号分隔)", "Whitelisted processes (comma-separated)")
                 text: Security.processWhitelist
                 onEditingFinished: Security.processWhitelist = text
             }
 
             ThemedTextField {
                 Layout.fillWidth: true
-                placeholderText: "黑名单进程 (逗号分隔)"
+                placeholderText: I18n.tr("黑名单进程 (逗号分隔)", "Blacklisted processes (comma-separated)")
                 text: Security.processBlacklist
                 onEditingFinished: Security.processBlacklist = text
             }
 
             ThemedButton {
-                text: "立即执行策略"
+                text: I18n.tr("立即执行策略", "Apply Policy Now")
                 onClicked: Security.applyPolicyNow()
             }
         }
 
         SectionCard {
             Layout.fillWidth: true
-            title: "安全告警与异常行为"
+            title: I18n.tr("安全告警与异常行为", "Security Alerts & Anomalies")
             icon: Icons.alert
 
             Repeater {

@@ -43,7 +43,7 @@ Item {
             ThemedTextField {
                 id: logInput
                 Layout.fillWidth: true
-                placeholderText: "输入手动日志内容"
+                placeholderText: I18n.tr("输入手动日志内容", "Enter manual log message")
             }
             ThemedComboBox {
                 id: levelBox
@@ -51,7 +51,7 @@ Item {
                 currentIndex: 0
             }
             ThemedButton {
-                text: "写入日志"
+                text: I18n.tr("写入日志", "Write Log")
                 enabled: logInput.text.length > 0
                 onClicked: {
                     Security.addManualLog(levelBox.currentText, logInput.text)
@@ -71,11 +71,11 @@ Item {
             ThemedTextField {
                 id: keywordInput
                 Layout.fillWidth: true
-                placeholderText: "按关键字筛选日志"
+                placeholderText: I18n.tr("按关键字筛选日志", "Filter by keyword")
                 onTextChanged: root.rebuildLogs()
             }
             ThemedButton {
-                text: "导出日志"
+                text: I18n.tr("导出日志", "Export Logs")
                 onClicked: {
                     const path = "./build/visualsafety-export.log"
                     Security.exportLogs(path)
@@ -86,7 +86,7 @@ Item {
         SectionCard {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            title: "日志记录"
+            title: I18n.tr("日志记录", "Logs")
             icon: Icons.log
 
             ListView {

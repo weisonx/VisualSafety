@@ -13,11 +13,11 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "网络、防火墙、流量"
+            title: I18n.tr("网络、防火墙、流量", "Network, Firewall & Traffic")
             icon: Icons.network
 
             Label {
-                text: Icons.firewall + " 防火墙规则"
+                text: Icons.firewall + " " + I18n.tr("防火墙规则", "Firewall Rules")
                 color: Theme.textPrimary
                 font.bold: true
                 font.pixelSize: 15
@@ -59,7 +59,7 @@ ScrollView {
             }
 
             Label {
-                text: Icons.traffic + " 流量基线"
+                text: Icons.traffic + " " + I18n.tr("流量基线", "Traffic Baseline")
                 color: Theme.textPrimary
                 font.bold: true
                 font.pixelSize: 15
@@ -90,7 +90,7 @@ ScrollView {
                         }
 
                         StatusTag {
-                            text: modelData.unusual === "Yes" ? "异常" : "正常"
+                            text: modelData.unusual === "Yes" ? I18n.tr("异常", "Unusual") : I18n.tr("正常", "Normal")
                             tone: modelData.unusual === "Yes" ? "warning" : "success"
                         }
                     }
@@ -100,7 +100,7 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "告警通知通道"
+            title: I18n.tr("告警通知通道", "Notification Channels")
             icon: Icons.alert
 
             RowLayout {
@@ -108,19 +108,19 @@ ScrollView {
                 spacing: 18
 
                 ThemedSwitch {
-                    text: Icons.desktop + " 桌面通知"
+                    text: Icons.desktop + " " + I18n.tr("桌面通知", "Desktop")
                     checked: Security.desktopNotify
                     onToggled: Security.desktopNotify = checked
                 }
 
                 ThemedSwitch {
-                    text: Icons.mail + " 邮件通知"
+                    text: Icons.mail + " " + I18n.tr("邮件通知", "Email")
                     checked: Security.emailNotify
                     onToggled: Security.emailNotify = checked
                 }
 
                 ThemedSwitch {
-                    text: Icons.sms + " 短信通知"
+                    text: Icons.sms + " " + I18n.tr("短信通知", "SMS")
                     checked: Security.smsNotify
                     onToggled: Security.smsNotify = checked
                 }
@@ -134,14 +134,14 @@ ScrollView {
 
                 ThemedTextField {
                     Layout.fillWidth: true
-                    placeholderText: "SMTP 服务器"
+                    placeholderText: I18n.tr("SMTP 服务器", "SMTP Server")
                     text: Security.smtpServer
                     onEditingFinished: Security.smtpServer = text
                 }
 
                 ThemedTextField {
                     Layout.fillWidth: true
-                    placeholderText: "SMTP 端口"
+                    placeholderText: I18n.tr("SMTP 端口", "SMTP Port")
                     text: String(Security.smtpPort)
                     inputMethodHints: Qt.ImhDigitsOnly
                     onEditingFinished: Security.smtpPort = Number(text)
@@ -149,35 +149,35 @@ ScrollView {
 
                 ThemedTextField {
                     Layout.fillWidth: true
-                    placeholderText: "发件人"
+                    placeholderText: I18n.tr("发件人", "Sender")
                     text: Security.smtpSender
                     onEditingFinished: Security.smtpSender = text
                 }
 
                 ThemedTextField {
                     Layout.fillWidth: true
-                    placeholderText: "收件人"
+                    placeholderText: I18n.tr("收件人", "Recipient")
                     text: Security.smtpRecipient
                     onEditingFinished: Security.smtpRecipient = text
                 }
 
                 ThemedTextField {
                     Layout.fillWidth: true
-                    placeholderText: "短信 Webhook URL"
+                    placeholderText: I18n.tr("短信 Webhook URL", "SMS Webhook URL")
                     text: Security.smsWebhookUrl
                     onEditingFinished: Security.smsWebhookUrl = text
                 }
 
                 ThemedTextField {
                     Layout.fillWidth: true
-                    placeholderText: "短信接收标识"
+                    placeholderText: I18n.tr("短信接收标识", "SMS Recipient ID")
                     text: Security.smsRecipient
                     onEditingFinished: Security.smsRecipient = text
                 }
             }
 
             ThemedButton {
-                text: "测试通知"
+                text: I18n.tr("测试通知", "Test Notifications")
                 onClicked: Security.testNotifications()
             }
         }

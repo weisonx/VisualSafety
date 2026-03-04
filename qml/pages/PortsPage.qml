@@ -13,7 +13,7 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "端口与高危端口使用情况"
+            title: I18n.tr("端口与高危端口使用情况", "Ports & High-Risk Ports")
             icon: Icons.port
 
             Repeater {
@@ -50,9 +50,11 @@ ScrollView {
                         }
 
                         ThemedButton {
-                            text: modelData.action === "Block" ? (Icons.block + " 阻断") : "观察"
+                            text: modelData.action === "Block"
+                                ? (Icons.block + " " + I18n.tr("阻断", "Block"))
+                                : I18n.tr("观察", "Observe")
                             enabled: modelData.action === "Block"
-                            onClicked: Security.blockAction(modelData.process, "Port " + modelData.port)
+                            onClicked: Security.blockAction(modelData.process, (I18n.tr("端口 ", "Port ") + modelData.port))
                         }
                     }
                 }

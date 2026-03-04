@@ -13,7 +13,7 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "权限列表"
+            title: I18n.tr("权限列表", "Permission List")
             icon: Icons.permission
 
             Repeater {
@@ -61,7 +61,7 @@ ScrollView {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "应用权限情况"
+            title: I18n.tr("应用权限情况", "App Permissions")
             icon: Icons.app
 
             Repeater {

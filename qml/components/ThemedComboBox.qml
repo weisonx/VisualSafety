@@ -51,7 +51,7 @@ ComboBox {
                 highlighted: root.highlightedIndex === index
 
                 contentItem: Label {
-                    text: modelData
+                    text: root.textRole && root.textRole.length > 0 ? modelData[root.textRole] : modelData
                     color: Theme.textPrimary
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: 8

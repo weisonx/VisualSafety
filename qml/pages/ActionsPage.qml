@@ -12,25 +12,25 @@ Item {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "高危动作拦截"
+            title: I18n.tr("高危动作拦截", "High-Risk Action Blocking")
             icon: Icons.block
 
             ThemedTextField {
                 id: sourceField
                 Layout.fillWidth: true
-                placeholderText: "来源进程，如 AgentRunner.exe"
+                placeholderText: I18n.tr("来源进程，如 AgentRunner.exe", "Source process, e.g. AgentRunner.exe")
                 text: "AgentRunner.exe"
             }
 
             ThemedTextField {
                 id: actionField
                 Layout.fillWidth: true
-                placeholderText: "动作描述，如 Invoke-Expression"
+                placeholderText: I18n.tr("动作描述，如 Invoke-Expression", "Action description, e.g. Invoke-Expression")
                 text: "Invoke-Expression"
             }
 
             ThemedButton {
-                text: Icons.block + " 立即阻断动作"
+                text: Icons.block + " " + I18n.tr("立即阻断动作", "Block Action Now")
                 enabled: sourceField.text.length > 0 && actionField.text.length > 0
                 onClicked: Security.blockAction(sourceField.text, actionField.text)
             }
@@ -38,11 +38,12 @@ Item {
 
         SectionCard {
             Layout.fillWidth: true
-            title: "紧急系统操作"
+            title: I18n.tr("紧急系统操作", "Emergency System Actions")
             icon: Icons.warning
 
             Label {
-                text: "在同一界面执行强制关机或重启，执行前请确认现场环境。"
+                text: I18n.tr("在同一界面执行强制关机或重启，执行前请确认现场环境。",
+                              "Force shutdown or restart from one screen. Confirm the environment before executing.")
                 color: Theme.textSecondary
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
@@ -54,13 +55,13 @@ Item {
 
                 ThemedButton {
                     Layout.fillWidth: true
-                    text: Icons.power + " 强制关机"
+                    text: Icons.power + " " + I18n.tr("强制关机", "Force Shutdown")
                     onClicked: Security.shutdownNow()
                 }
 
                 ThemedButton {
                     Layout.fillWidth: true
-                    text: Icons.restart + " 强制重启"
+                    text: Icons.restart + " " + I18n.tr("强制重启", "Force Restart")
                     onClicked: Security.restartNow()
                 }
             }
