@@ -6,6 +6,8 @@ import "../components"
 ScrollView {
     id: root
     clip: true
+    ScrollBar.vertical: ThemedScrollBar {}
+    ScrollBar.horizontal: ThemedScrollBar {}
 
     ColumnLayout {
         width: root.availableWidth
@@ -80,6 +82,10 @@ ScrollView {
                                 text: modelData.time
                                 color: Theme.textSecondary
                                 Layout.preferredWidth: 140
+                                Layout.maximumWidth: 140
+                                horizontalAlignment: Text.AlignRight
+                                elide: Text.ElideRight
+                                clip: true
                             }
 
                             Label {

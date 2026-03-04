@@ -67,12 +67,14 @@ ApplicationWindow {
 
             ThemedButton {
                 text: Icons.refresh + " 刷新"
+                Layout.alignment: Qt.AlignVCenter
                 onClicked: Security.refreshData()
             }
 
             ThemedSwitch {
                 checked: Theme.darkTheme
                 text: checked ? (Icons.theme + " 深色") : (Icons.theme + " 浅色")
+                Layout.alignment: Qt.AlignVCenter
                 onToggled: Theme.darkTheme = checked
             }
         }

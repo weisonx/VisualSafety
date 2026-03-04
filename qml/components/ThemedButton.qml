@@ -3,6 +3,11 @@ import QtQuick.Controls
 
 Button {
     id: root
+    implicitHeight: 34
+    leftPadding: 12
+    rightPadding: 12
+    topPadding: 7
+    bottomPadding: 7
 
     contentItem: Label {
         text: root.text

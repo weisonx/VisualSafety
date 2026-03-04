@@ -3,6 +3,8 @@ import QtQuick.Controls
 
 Switch {
     id: root
+    implicitHeight: 34
+    spacing: 10
 
     indicator: Rectangle {
         implicitWidth: 44

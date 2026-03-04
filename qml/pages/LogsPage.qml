@@ -110,6 +110,10 @@ Item {
                             text: modelData.time
                             color: Theme.textSecondary
                             Layout.preferredWidth: 140
+                            Layout.maximumWidth: 140
+                            horizontalAlignment: Text.AlignRight
+                            elide: Text.ElideRight
+                            clip: true
                         }
 
                         StatusTag {

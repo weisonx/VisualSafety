@@ -6,6 +6,8 @@ import "../components"
 ScrollView {
     id: root
     clip: true
+    ScrollBar.vertical: ThemedScrollBar {}
+    ScrollBar.horizontal: ThemedScrollBar {}
 
     ColumnLayout {
         width: root.availableWidth
@@ -90,14 +92,18 @@ ScrollView {
                         Label {
                             text: modelData.time
                             color: Theme.textSecondary
-                            Layout.preferredWidth: 70
+                            Layout.preferredWidth: 140
+                            Layout.maximumWidth: 140
+                            horizontalAlignment: Text.AlignRight
+                            elide: Text.ElideRight
+                            clip: true
                         }
                     }
                 }
             }
         }
 
-        RowLayout {
+        ColumnLayout {
             Layout.fillWidth: true
             spacing: 12
 
@@ -121,7 +127,11 @@ ScrollView {
                             Label {
                                 text: rowData.time
                                 color: Theme.textSecondary
-                                Layout.preferredWidth: 70
+                                Layout.preferredWidth: 140
+                                Layout.maximumWidth: 140
+                                horizontalAlignment: Text.AlignRight
+                                elide: Text.ElideRight
+                                clip: true
                             }
                             Label {
                                 text: rowData.title

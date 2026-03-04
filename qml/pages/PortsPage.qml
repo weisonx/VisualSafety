@@ -6,6 +6,8 @@ import "../components"
 ScrollView {
     id: root
     clip: true
+    ScrollBar.vertical: ThemedScrollBar {}
+    ScrollBar.horizontal: ThemedScrollBar {}
 
     ColumnLayout {
         width: root.availableWidth
