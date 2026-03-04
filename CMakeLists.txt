@@ -58,6 +58,10 @@ target_link_libraries(appVisualSafety
     PRIVATE Qt6::Quick
 )
 
+if (WIN32)
+    target_link_libraries(appVisualSafety PRIVATE dwmapi)
+endif()
+
 include(GNUInstallDirs)
 install(TARGETS appVisualSafety
     BUNDLE DESTINATION .

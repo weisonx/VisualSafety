@@ -9,6 +9,7 @@ Switch {
     indicator: Rectangle {
         implicitWidth: 44
         implicitHeight: 24
+        y: Math.round((root.height - height) / 2)
         radius: 12
         color: root.checked ? Theme.accentColor : Theme.controlBg
         border.width: 1
@@ -27,6 +28,7 @@ Switch {
     contentItem: Label {
         text: root.text
         color: Theme.textPrimary
+        height: root.implicitHeight
         verticalAlignment: Text.AlignVCenter
         leftPadding: root.indicator.width + root.spacing
     }
