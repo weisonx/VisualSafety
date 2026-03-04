@@ -28,7 +28,6 @@ qt_add_qml_module(appVisualSafety
         qml/components/ThemedTextField.qml
         qml/components/ThemedSwitch.qml
         qml/components/ThemedComboBox.qml
-        qml/components/ThemedScrollBar.qml
         qml/pages/ActionsPage.qml
         qml/pages/AlertsPage.qml
         qml/pages/AppsPage.qml
