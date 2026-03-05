@@ -121,11 +121,28 @@ ApplicationWindow {
                     highlighted: root.currentIndex === index
                     onClicked: root.currentIndex = index
 
-                    contentItem: Label {
-                        text: modelData.icon + "  " + modelData.title
-                        color: Theme.textPrimary
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: 8
+                    contentItem: RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        spacing: 10
+
+                        Label {
+                            text: modelData.icon
+                            color: Theme.textPrimary
+                            font.pixelSize: 16
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            Layout.preferredWidth: 24
+                        }
+
+                        Label {
+                            text: modelData.title
+                            color: Theme.textPrimary
+                            verticalAlignment: Text.AlignVCenter
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
                     }
 
                     background: Rectangle {

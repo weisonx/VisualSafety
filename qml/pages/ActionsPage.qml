@@ -6,6 +6,42 @@ import "../components"
 Item {
     id: root
 
+    Dialog {
+        id: shutdownDialog
+        parent: root.Window.window ? root.Window.window.contentItem : root
+        modal: true
+        title: I18n.tr("确认强制关机", "Confirm Force Shutdown")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        Label {
+            text: I18n.tr("确认执行强制关机？系统将在 5 秒后关机，未保存的数据可能丢失。",
+                          "Force shutdown now? The system will shut down in 5 seconds and unsaved data may be lost.")
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
+            width: Math.min(420, root.width * 0.9)
+        }
+
+        onAccepted: Security.shutdownNow()
+    }
+
+    Dialog {
+        id: restartDialog
+        parent: root.Window.window ? root.Window.window.contentItem : root
+        modal: true
+        title: I18n.tr("确认强制重启", "Confirm Force Restart")
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        Label {
+            text: I18n.tr("确认执行强制重启？系统将在 5 秒后重启，未保存的数据可能丢失。",
+                          "Force restart now? The system will restart in 5 seconds and unsaved data may be lost.")
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
+            width: Math.min(420, root.width * 0.9)
+        }
+
+        onAccepted: Security.restartNow()
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 12
@@ -56,13 +92,13 @@ Item {
                 ThemedButton {
                     Layout.fillWidth: true
                     text: Icons.power + " " + I18n.tr("强制关机", "Force Shutdown")
-                    onClicked: Security.shutdownNow()
+                    onClicked: shutdownDialog.open()
                 }
 
                 ThemedButton {
                     Layout.fillWidth: true
                     text: Icons.restart + " " + I18n.tr("强制重启", "Force Restart")
-                    onClicked: Security.restartNow()
+                    onClicked: restartDialog.open()
                 }
             }
         }
