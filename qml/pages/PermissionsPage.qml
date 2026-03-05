@@ -45,13 +45,13 @@ ScrollView {
                         }
 
                         StatusTag {
-                            text: modelData.level
+                            text: I18n.riskLabel(modelData.level)
                             tone: modelData.level === "Critical" ? "danger"
                                 : modelData.level === "High" ? "warning" : "normal"
                         }
 
                         StatusTag {
-                            text: modelData.status
+                            text: I18n.statusLabel(modelData.status)
                             tone: (modelData.status === "Enabled" || modelData.status === "Elevated")
                                 ? (modelData.level === "Critical" ? "danger" : "warning")
                                 : (modelData.status === "Unavailable" ? "warning" : "success")

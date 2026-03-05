@@ -95,7 +95,7 @@ ScrollView {
                             }
 
                             StatusTag {
-                                text: modelData.severity
+                                text: I18n.severityLabel(modelData.severity)
                                 tone: modelData.severity === "Critical" ? "danger"
                                     : modelData.severity === "High" ? "warning" : "normal"
                             }

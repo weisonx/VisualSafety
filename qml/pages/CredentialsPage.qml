@@ -51,7 +51,7 @@ ScrollView {
                         }
 
                         StatusTag {
-                            text: modelData.exposure
+                            text: I18n.exposureLabel(modelData.exposure)
                             tone: modelData.exposure === "Masked" || modelData.exposure === "Vault Protected" ? "success" : "warning"
                         }
                     }

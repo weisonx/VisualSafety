@@ -83,7 +83,7 @@ ScrollView {
                         }
 
                         StatusTag {
-                            text: modelData.risk
+                            text: I18n.riskLabel(modelData.risk)
                             tone: modelData.risk === "Critical" ? "danger" : "warning"
                         }
 
@@ -166,7 +166,7 @@ ScrollView {
                                 elide: Text.ElideRight
                             }
                             StatusTag {
-                                text: rowData.trust
+                                text: I18n.trustLabel(rowData.trust)
                                 tone: rowData.trust === "Trusted" ? "success" : "warning"
                             }
                         }

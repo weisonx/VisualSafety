@@ -58,7 +58,7 @@ Item {
                                 }
 
                                 StatusTag {
-                                    text: modelData.trust
+                                    text: I18n.trustLabel(modelData.trust)
                                     tone: modelData.trust === "Trusted" ? "success"
                                         : modelData.trust === "Untrusted" ? "danger" : "warning"
                                 }

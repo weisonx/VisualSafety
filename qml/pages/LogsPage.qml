@@ -117,7 +117,7 @@ Item {
                         }
 
                         StatusTag {
-                            text: modelData.level
+                            text: I18n.logLevelLabel(modelData.level)
                             tone: modelData.level === "CRITICAL" || modelData.level === "ALERT" || modelData.level === "ERROR" ? "danger"
                                 : modelData.level === "WARN" ? "warning" : "normal"
                         }
