@@ -52,7 +52,9 @@ ScrollView {
 
                         StatusTag {
                             text: modelData.status
-                            tone: modelData.status === "Denied" || modelData.status === "Restricted" ? "warning" : "success"
+                            tone: (modelData.status === "Enabled" || modelData.status === "Elevated")
+                                ? (modelData.level === "Critical" ? "danger" : "warning")
+                                : (modelData.status === "Unavailable" ? "warning" : "success")
                         }
                     }
                 }

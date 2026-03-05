@@ -1,8 +1,15 @@
 ﻿#include "securitycontroller.h"
 
+#include <QDateTime>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
+
+#include <algorithm>
 
 namespace {
 struct CommandResult {
@@ -156,6 +163,38 @@ QString RiskForPort(int port)
     }
     return port > 0 ? "Low" : "Medium";
 }
+
+QString RiskForPrivilege(const QString &name)
+{
+    static const QSet<QString> critical = {
+        "sedebugprivilege",
+        "secreatetokenprivilege",
+        "seassignprimarytokenprivilege",
+        "setcbprivilege",
+        "seimpersonateprivilege",
+        "seloaddriverprivilege",
+        "setakeownershipprivilege",
+        "serestoreprivilege",
+        "sebackupprivilege",
+        "sesecurityprivilege"
+    };
+    static const QSet<QString> high = {
+        "seincreasequotaprivilege",
+        "seremoteshutdownprivilege",
+        "seshutdownprivilege",
+        "semanagevolumeprivilege",
+        "serelabelprivilege"
+    };
+
+    const QString key = Normalize(name);
+    if (critical.contains(key)) {
+        return "Critical";
+    }
+    if (high.contains(key)) {
+        return "High";
+    }
+    return "Medium";
+}
 }
 
 QVariantList SecurityController::scanAppMonitors() const
@@ -174,7 +213,6 @@ QVariantList SecurityController::scanAppMonitors() const
     }
 
     const QStringList lines = result.out.split('\n', Qt::SkipEmptyParts);
-    int count = 0;
     for (const QString &rawLine : lines) {
         const QString line = rawLine.trimmed();
         if (line.isEmpty()) {
@@ -199,11 +237,6 @@ QVariantList SecurityController::scanAppMonitors() const
             {"status", "Running"},
             {"hint", ProcessHint(app)}
         }));
-
-        ++count;
-        if (count >= 80) {
-            break;
-        }
     }
 
     if (out.isEmpty()) {
@@ -216,6 +249,92 @@ QVariantList SecurityController::scanAppMonitors() const
         }));
     }
 
+    return out;
+}
+
+QVariantList SecurityController::scanPrivileges(bool isAdmin) const
+{
+    QVariantList out;
+
+    const CommandResult result = RunProcess("whoami", {"/priv", "/fo", "csv", "/nh"}, 8000);
+    if (!result.finished || result.exitCode != 0) {
+        out.append(MapOf({
+            {"name", "Token Privileges"},
+            {"scope", "whoami /priv unavailable"},
+            {"level", isAdmin ? "High" : "Medium"},
+            {"status", "Unavailable"}
+        }));
+        return out;
+    }
+
+    const QStringList lines = result.out.split('\n', Qt::SkipEmptyParts);
+    QVariantList parsed;
+    for (const QString &rawLine : lines) {
+        const QString line = rawLine.trimmed();
+        if (line.isEmpty()) {
+            continue;
+        }
+
+        const QStringList fields = ParseCsvLine(line);
+        if (fields.size() < 3) {
+            continue;
+        }
+
+        const QString privName = StripCsvQuotes(fields.at(0));
+        const QString description = StripCsvQuotes(fields.at(1));
+        const QString state = StripCsvQuotes(fields.at(2));
+        if (privName.isEmpty()) {
+            continue;
+        }
+
+        const QString level = RiskForPrivilege(privName);
+        parsed.append(MapOf({
+            {"name", privName},
+            {"scope", description},
+            {"level", level},
+            {"status", state}
+        }));
+    }
+
+    if (parsed.isEmpty()) {
+        out.append(MapOf({
+            {"name", "Token Privileges"},
+            {"scope", "No privileges parsed from whoami /priv"},
+            {"level", isAdmin ? "High" : "Medium"},
+            {"status", "Unavailable"}
+        }));
+        return out;
+    }
+
+    std::stable_sort(parsed.begin(), parsed.end(), [](const QVariant &a, const QVariant &b) {
+        const QVariantMap ma = a.toMap();
+        const QVariantMap mb = b.toMap();
+
+        const auto score = [](const QString &level) {
+            if (level == "Critical") return 0;
+            if (level == "High") return 1;
+            return 2;
+        };
+
+        const int sa = score(ma.value("level").toString());
+        const int sb = score(mb.value("level").toString());
+        if (sa != sb) {
+            return sa < sb;
+        }
+        return ma.value("name").toString().compare(mb.value("name").toString(), Qt::CaseInsensitive) < 0;
+    });
+
+    out.append(MapOf({
+        {"name", "Admin Token"},
+        {"scope", "Current user elevation status"},
+        {"level", isAdmin ? "High" : "Medium"},
+        {"status", isAdmin ? "Elevated" : "Not elevated"}
+    }));
+
+    const int limit = 60;
+    for (int i = 0; i < parsed.size() && i < limit; ++i) {
+        out.append(parsed.at(i));
+    }
     return out;
 }
 
@@ -329,7 +448,9 @@ QVariantList SecurityController::scanCredentials() const
         return out;
     }
 
-    const QRegularExpression targetExpr("^\\s*(Target|目标)\\s*:\\s*(.+)$", QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression targetExpr(
+        "^\\s*(Target|目标)\\s*[:：]\\s*(.+)$",
+        QRegularExpression::CaseInsensitiveOption);
     const QStringList lines = result.out.split('\n', Qt::SkipEmptyParts);
     for (const QString &rawLine : lines) {
         const QString line = rawLine.trimmed();
@@ -445,20 +566,133 @@ QVariantList SecurityController::scanTraffic() const
         }
     }
 
-    if (totalRx <= 0.0 && totalTx <= 0.0) {
-        out.append(MapOf({{"direction", "Inbound"}, {"mbps", "N/A"}, {"unusual", "No"}}));
-        out.append(MapOf({{"direction", "Outbound"}, {"mbps", "N/A"}, {"unusual", "No"}}));
-        out.append(MapOf({{"direction", "Lateral"}, {"mbps", "N/A"}, {"unusual", "No"}}));
+    static double lastTotalRx = 0.0;
+    static double lastTotalTx = 0.0;
+    static qint64 lastSampleMs = 0;
+
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    const double deltaSeconds =
+        lastSampleMs > 0 ? (static_cast<double>(nowMs - lastSampleMs) / 1000.0) : 0.0;
+
+    double rxMbps = 0.0;
+    double txMbps = 0.0;
+    bool rateValid = false;
+
+    if (deltaSeconds >= 0.2 && totalRx >= lastTotalRx && totalTx >= lastTotalTx) {
+        const double rxBps = (totalRx - lastTotalRx) / deltaSeconds;
+        const double txBps = (totalTx - lastTotalTx) / deltaSeconds;
+        rxMbps = (rxBps * 8.0) / 1000.0 / 1000.0;
+        txMbps = (txBps * 8.0) / 1000.0 / 1000.0;
+        rateValid = true;
+    }
+
+    lastTotalRx = totalRx;
+    lastTotalTx = totalTx;
+    lastSampleMs = nowMs;
+
+    const QString rxText = rateValid ? QString::number(rxMbps, 'f', 1) : "N/A";
+    const QString txText = rateValid ? QString::number(txMbps, 'f', 1) : "N/A";
+    const QString totalText = rateValid ? QString::number(rxMbps + txMbps, 'f', 1) : "N/A";
+
+    const bool unusual = rateValid && (txMbps > rxMbps * 1.8) && (txMbps > 50.0);
+
+    out.append(MapOf({{"direction", "Inbound"}, {"mbps", rxText}, {"unusual", "No"}}));
+    out.append(MapOf({{"direction", "Outbound"}, {"mbps", txText}, {"unusual", unusual ? "Yes" : "No"}}));
+    out.append(MapOf({{"direction", "Total"}, {"mbps", totalText}, {"unusual", "No"}}));
+    return out;
+}
+
+QVariantList SecurityController::scanEventAlerts() const
+{
+    QVariantList out;
+
+    const QString psScript =
+        "$start=(Get-Date).AddHours(-6);"
+        "$logs=@("
+        "'Microsoft-Windows-Windows Defender/Operational',"
+        "'Microsoft-Windows-PowerShell/Operational',"
+        "'Security',"
+        "'System'"
+        ");"
+        "$ev=@();"
+        "foreach($l in $logs){"
+        "  try {"
+        "    $ev += Get-WinEvent -FilterHashtable @{LogName=$l; StartTime=$start} -MaxEvents 30 | "
+        "      Select-Object TimeCreated,Id,LevelDisplayName,ProviderName,LogName,Message;"
+        "  } catch { }"
+        "};"
+        "$ev | ForEach-Object {"
+        "  $msg=$_.Message;"
+        "  if($null -ne $msg -and $msg.Length -gt 260){ $msg=$msg.Substring(0,260) + '...'; }"
+        "  [PSCustomObject]@{"
+        "    time=$_.TimeCreated;"
+        "    id=$_.Id;"
+        "    level=$_.LevelDisplayName;"
+        "    provider=$_.ProviderName;"
+        "    log=$_.LogName;"
+        "    message=$msg"
+        "  }"
+        "} | ConvertTo-Json -Compress";
+
+    const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", psScript}, 12000);
+    if (!result.finished || result.exitCode != 0) {
         return out;
     }
 
-    const double rxMb = totalRx / (1024.0 * 1024.0);
-    const double txMb = totalTx / (1024.0 * 1024.0);
-    const bool unusual = (txMb > rxMb * 1.8) && (txMb > 256.0);
+    const QByteArray jsonBytes = result.out.toUtf8().trimmed();
+    if (jsonBytes.isEmpty() || jsonBytes == "null") {
+        return out;
+    }
 
-    out.append(MapOf({{"direction", "Inbound"}, {"mbps", QString::number(rxMb, 'f', 1)}, {"unusual", "No"}}));
-    out.append(MapOf({{"direction", "Outbound"}, {"mbps", QString::number(txMb, 'f', 1)}, {"unusual", unusual ? "Yes" : "No"}}));
-    out.append(MapOf({{"direction", "Lateral"}, {"mbps", QString::number((rxMb + txMb) / 8.0, 'f', 1)}, {"unusual", "No"}}));
+    QJsonParseError error{};
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonBytes, &error);
+    if (error.error != QJsonParseError::NoError) {
+        return out;
+    }
+
+    const auto mapSeverity = [](const QString &level) {
+        const QString key = level.trimmed().toLower();
+        if (key == "critical") return QString("Critical");
+        if (key == "error") return QString("High");
+        if (key == "warning") return QString("Medium");
+        return QString("Low");
+    };
+
+    const auto appendOne = [&](const QJsonObject &obj) {
+        const QString level = obj.value("level").toString();
+        const QString provider = obj.value("provider").toString();
+        const QString log = obj.value("log").toString();
+        const int id = obj.value("id").toInt();
+
+        const QString title = QString("%1 (%2/%3)").arg(
+            provider.isEmpty() ? "Event" : provider,
+            log.isEmpty() ? "Log" : log,
+            QString::number(id));
+
+        out.append(MapOf({
+            {"time", obj.value("time").toString()},
+            {"severity", mapSeverity(level)},
+            {"title", title},
+            {"detail", obj.value("message").toString()},
+            {"origin", "eventlog"}
+        }));
+    };
+
+    if (doc.isArray()) {
+        const QJsonArray arr = doc.array();
+        for (const auto &value : arr) {
+            if (!value.isObject()) {
+                continue;
+            }
+            appendOne(value.toObject());
+            if (out.size() >= 60) {
+                break;
+            }
+        }
+    } else if (doc.isObject()) {
+        appendOne(doc.object());
+    }
+
     return out;
 }
 
@@ -494,7 +728,7 @@ QVariantList SecurityController::deriveAppPermissions(const QVariantList &apps, 
             status = "Denied";
         }
 
-        out.append(MapOf({{"app", app}, {"permission", permission}, {"status", status}, {"lastUsed", "just now"}}));
+        out.append(MapOf({{"app", app}, {"permission", permission}, {"status", status}, {"lastUsed", nowStamp()}}));
         if (out.size() >= 30) {
             break;
         }

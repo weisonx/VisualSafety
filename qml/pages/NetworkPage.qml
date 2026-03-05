@@ -59,7 +59,7 @@ ScrollView {
             }
 
             Label {
-                text: Icons.traffic + " " + I18n.tr("流量基线", "Traffic Baseline")
+                text: Icons.traffic + " " + I18n.tr("流量速率（Mbps）", "Traffic Rate (Mbps)")
                 color: Theme.textPrimary
                 font.bold: true
                 font.pixelSize: 15
@@ -84,7 +84,7 @@ ScrollView {
                         }
 
                         Label {
-                            text: modelData.mbps + " MB"
+                            text: modelData.mbps + " Mbps"
                             color: Theme.textSecondary
                             Layout.preferredWidth: 100
                         }

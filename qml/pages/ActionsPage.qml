@@ -55,14 +55,14 @@ Item {
                 id: sourceField
                 Layout.fillWidth: true
                 placeholderText: I18n.tr("来源进程，如 AgentRunner.exe", "Source process, e.g. AgentRunner.exe")
-                text: "AgentRunner.exe"
+                text: ""
             }
 
             ThemedTextField {
                 id: actionField
                 Layout.fillWidth: true
                 placeholderText: I18n.tr("动作描述，如 Invoke-Expression", "Action description, e.g. Invoke-Expression")
-                text: "Invoke-Expression"
+                text: ""
             }
 
             ThemedButton {

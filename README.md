@@ -130,4 +130,14 @@ VisualSafety/
 
 ## 9. 开发状态说明
 
-当前版本以可视化框架与交互骨架为主，已覆盖目标功能页面与主题/图标规范。后续可在现有架构上逐步替换模拟数据为真实监控能力。
+当前版本已完成主要页面骨架与主题/图标规范，并已接入一批“本机真实数据”的采集（Windows）：
+
+- 应用/进程：`tasklist`
+- 端口监听：`netstat -ano`
+- 凭证列表：`cmdkey /list`
+- 防火墙配置：PowerShell `Get-NetFirewallProfile`（失败时回退 `netsh advfirewall show allprofiles`）
+- 网卡收发速率：PowerShell `Get-NetAdapterStatistics`（基于两次采样差值换算 Mbps）
+- 权限/令牌特权：`whoami /priv`
+- 事件告警：PowerShell `Get-WinEvent`（Defender / PowerShell / Security / System，近 6 小时）
+
+说明：部分页面（如“权限分级/高危权限/告警”等）仍包含启发式推导逻辑，用于在没有完整 EDR/事件订阅的情况下提供可操作的风险视图。

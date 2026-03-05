@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSet>
 #include <QStandardPaths>
 #include <QTextStream>
 
@@ -258,7 +259,10 @@ void SecurityController::refreshData()
 
     m_appPermissions = deriveAppPermissions(m_appMonitors, m_ports);
     m_highRiskPermissions = deriveHighRiskPermissions(m_appMonitors, m_ports);
-    m_permissions = derivePermissions(m_firewallRules, admin);
+    m_permissions = scanPrivileges(admin);
+    if (m_permissions.isEmpty()) {
+        m_permissions = derivePermissions(m_firewallRules, admin);
+    }
 
     runPolicyEngine();
 
@@ -269,11 +273,30 @@ void SecurityController::refreshData()
         }
     }
 
-    QVariantList mergedAlerts = runtimeAlerts;
+    const QVariantList eventAlerts = scanEventAlerts();
     const QVariantList scanAlerts = deriveAlerts(m_highRiskPermissions, m_traffic);
-    for (const auto &item : scanAlerts) {
-        mergedAlerts.append(item);
-    }
+
+    QVariantList mergedAlerts;
+    QSet<QString> seen;
+
+    auto appendUnique = [&](const QVariantList &source) {
+        for (const auto &item : source) {
+            const QVariantMap row = item.toMap();
+            const QString key = row.value("title").toString() + "|" + row.value("detail").toString();
+            if (key.trimmed().isEmpty() || seen.contains(key)) {
+                continue;
+            }
+            seen.insert(key);
+            mergedAlerts.append(item);
+            if (mergedAlerts.size() >= 100) {
+                break;
+            }
+        }
+    };
+
+    appendUnique(runtimeAlerts);
+    appendUnique(eventAlerts);
+    appendUnique(scanAlerts);
 
     while (mergedAlerts.size() > 100) {
         mergedAlerts.removeLast();

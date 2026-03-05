@@ -40,6 +40,7 @@ Pane {
         ColumnLayout {
             id: contentColumn
             Layout.fillWidth: true
+            Layout.fillHeight: true
             spacing: 8
         }
     }

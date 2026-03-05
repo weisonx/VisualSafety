@@ -120,10 +120,12 @@ private:
     void appendAlert(const QString &severity, const QString &title, const QString &detail);
 
     QVariantList scanAppMonitors() const;
+    QVariantList scanPrivileges(bool isAdmin) const;
     QVariantList scanPorts(const QVariantList &apps) const;
     QVariantList scanCredentials() const;
     QVariantList scanFirewallRules() const;
     QVariantList scanTraffic() const;
+    QVariantList scanEventAlerts() const;
     QVariantList deriveAppPermissions(const QVariantList &apps, const QVariantList &ports) const;
     QVariantList deriveHighRiskPermissions(const QVariantList &apps, const QVariantList &ports) const;
     QVariantList derivePermissions(const QVariantList &firewallRules, bool isAdmin) const;
@@ -145,9 +147,9 @@ private:
     bool m_desktopNotify = true;
     bool m_emailNotify = true;
     bool m_smsNotify = false;
-    QString m_smtpServer = "smtp.example.com";
+    QString m_smtpServer;
     int m_smtpPort = 25;
-    QString m_smtpSender = "visualsafety@example.com";
+    QString m_smtpSender;
     QString m_smtpRecipient;
     QString m_smsWebhookUrl;
     QString m_smsRecipient;

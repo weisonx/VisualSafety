@@ -148,8 +148,9 @@ ScrollView {
                 icon: Icons.app
 
                 Repeater {
-                    model: Security.appMonitors
+                    model: Math.min(10, Security.appMonitors.length)
                     delegate: Rectangle {
+                        readonly property var rowData: Security.appMonitors[index]
                         Layout.fillWidth: true
                         radius: 8
                         color: Theme.cardAltBg
@@ -159,14 +160,14 @@ ScrollView {
                             anchors.fill: parent
                             anchors.margins: 10
                             Label {
-                                text: modelData.app + " (PID " + modelData.pid + ")"
+                                text: rowData.app + " (PID " + rowData.pid + ")"
                                 color: Theme.textPrimary
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
                             }
                             StatusTag {
-                                text: modelData.trust
-                                tone: modelData.trust === "Trusted" ? "success" : "warning"
+                                text: rowData.trust
+                                tone: rowData.trust === "Trusted" ? "success" : "warning"
                             }
                         }
                     }
