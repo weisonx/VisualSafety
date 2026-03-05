@@ -61,6 +61,7 @@ target_link_libraries(appVisualSafety
 )
 
 if (WIN32)
+    target_sources(appVisualSafety PRIVATE src/icons/app_icon.rc)
     target_link_libraries(appVisualSafety PRIVATE dwmapi)
 endif()
 
