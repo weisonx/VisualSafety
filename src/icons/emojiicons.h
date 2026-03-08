@@ -11,6 +11,7 @@ class EmojiIcons final : public QObject
     Q_PROPERTY(QString credential READ credential CONSTANT)
     Q_PROPERTY(QString port READ port CONSTANT)
     Q_PROPERTY(QString network READ network CONSTANT)
+    Q_PROPERTY(QString exposure READ exposure CONSTANT)
     Q_PROPERTY(QString alert READ alert CONSTANT)
     Q_PROPERTY(QString log READ log CONSTANT)
     Q_PROPERTY(QString app READ app CONSTANT)
@@ -38,6 +39,7 @@ public:
     QString credential() const;
     QString port() const;
     QString network() const;
+    QString exposure() const;
     QString alert() const;
     QString log() const;
     QString app() const;

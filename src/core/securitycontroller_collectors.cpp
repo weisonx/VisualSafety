@@ -106,6 +106,73 @@ int ParsePortFromAddress(const QString &address)
     return ok ? port : -1;
 }
 
+bool IsPrivateOrSpecialIPv4(const QString &ip)
+{
+    const QStringList parts = ip.split('.', Qt::SkipEmptyParts);
+    if (parts.size() != 4) {
+        return true;
+    }
+    bool ok0 = false;
+    bool ok1 = false;
+    bool ok2 = false;
+    bool ok3 = false;
+    const int a = parts.at(0).toInt(&ok0);
+    const int b = parts.at(1).toInt(&ok1);
+    const int c = parts.at(2).toInt(&ok2);
+    const int d = parts.at(3).toInt(&ok3);
+    if (!ok0 || !ok1 || !ok2 || !ok3) {
+        return true;
+    }
+    if (a < 0 || a > 255 || b < 0 || b > 255 || c < 0 || c > 255 || d < 0 || d > 255) {
+        return true;
+    }
+
+    if (a == 0 || a == 10 || a == 127) {
+        return true;
+    }
+    if (a == 169 && b == 254) {
+        return true;
+    }
+    if (a == 172 && b >= 16 && b <= 31) {
+        return true;
+    }
+    if (a == 192 && b == 168) {
+        return true;
+    }
+    // Carrier-grade NAT range.
+    if (a == 100 && b >= 64 && b <= 127) {
+        return true;
+    }
+    return false;
+}
+
+QString BindScopeForLocalAddress(const QString &localAddress)
+{
+    const QString addr = localAddress.trimmed();
+    if (addr.startsWith("0.0.0.0:", Qt::CaseInsensitive) || addr.startsWith("[::]:", Qt::CaseInsensitive) ||
+        addr.startsWith(":::", Qt::CaseInsensitive)) {
+        return "Any";
+    }
+    if (addr.startsWith("127.0.0.1:", Qt::CaseInsensitive) || addr.startsWith("[::1]:", Qt::CaseInsensitive)) {
+        return "Loopback";
+    }
+
+    const int colon = addr.lastIndexOf(':');
+    if (colon <= 0) {
+        return "Unknown";
+    }
+
+    QString host = addr.left(colon);
+    host.remove('[');
+    host.remove(']');
+    if (host.contains(':')) {
+        // IPv6. Conservatively treat non-loopback as potentially reachable.
+        return host == "::1" ? "Loopback" : "Any";
+    }
+
+    return IsPrivateOrSpecialIPv4(host) ? "Private" : "Public";
+}
+
 QString Normalize(const QString &name)
 {
     return name.trimmed().toLower();
@@ -408,10 +475,17 @@ QVariantList SecurityController::scanPorts(const QVariantList &apps) const
             action = "Watch";
         }
 
+        const QString bindScope = BindScopeForLocalAddress(localAddress);
+        const bool exposed = (bindScope == "Any" || bindScope == "Public");
+
         out.append(MapOf({
             {"port", QString::number(port)},
             {"protocol", protocol},
             {"process", pidToName.value(pid, "PID " + pid)},
+            {"localAddress", localAddress},
+            {"state", state},
+            {"bindScope", bindScope},
+            {"exposed", exposed},
             {"risk", risk},
             {"action", action}
         }));
@@ -428,6 +502,195 @@ QVariantList SecurityController::scanPorts(const QVariantList &apps) const
             {"process", "No listening ports parsed"},
             {"risk", "Low"},
             {"action", "Allow"}
+        }));
+    }
+
+    return out;
+}
+
+QVariantList SecurityController::scanIpAddresses() const
+{
+    QVariantList out;
+
+    const QString psScript =
+        "Get-NetIPAddress -AddressFamily IPv4 | "
+        "Where-Object { $_.IPAddress -and $_.IPAddress -ne '127.0.0.1' } | "
+        "Select-Object IPAddress,InterfaceAlias,AddressState | ConvertTo-Csv -NoTypeInformation";
+    const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", psScript}, 12000);
+    if (!result.finished || result.exitCode != 0) {
+        out.append(MapOf({
+            {"ip", "Unavailable"},
+            {"iface", "N/A"},
+            {"state", "Unavailable"},
+            {"guessedPublic", false},
+            {"detail", MergedOutput(result)}
+        }));
+        return out;
+    }
+
+    const QStringList lines = result.out.split('\n', Qt::SkipEmptyParts);
+    for (int i = 1; i < lines.size(); ++i) {
+        const QStringList fields = ParseCsvLine(lines.at(i).trimmed());
+        if (fields.size() < 3) {
+            continue;
+        }
+
+        const QString ip = StripCsvQuotes(fields.at(0));
+        const QString iface = StripCsvQuotes(fields.at(1));
+        const QString state = StripCsvQuotes(fields.at(2));
+        if (ip.isEmpty()) {
+            continue;
+        }
+
+        out.append(MapOf({
+            {"ip", ip},
+            {"iface", iface},
+            {"state", state},
+            {"guessedPublic", !IsPrivateOrSpecialIPv4(ip)}
+        }));
+
+        if (out.size() >= 40) {
+            break;
+        }
+    }
+
+    if (out.isEmpty()) {
+        out.append(MapOf({
+            {"ip", "N/A"},
+            {"iface", "N/A"},
+            {"state", "Unavailable"},
+            {"guessedPublic", false}
+        }));
+    }
+
+    return out;
+}
+
+QVariantList SecurityController::scanPublicExposure(const QVariantList &ports, const QVariantList &firewallRules, const QVariantList &ipAddresses) const
+{
+    QVariantList out;
+
+    bool firewallDisabled = false;
+    bool inboundAllowByDefault = false;
+    for (const auto &entry : firewallRules) {
+        const QVariantMap row = entry.toMap();
+        if (row.value("decision").toString() == "Disabled") {
+            firewallDisabled = true;
+        }
+        const QString target = row.value("target").toString();
+        if (target.contains("Inbound=Allow", Qt::CaseInsensitive)) {
+            inboundAllowByDefault = true;
+        }
+    }
+
+    QStringList publicInterfaces;
+    QStringList privateInterfaces;
+
+    for (const auto &entry : ipAddresses) {
+        const QVariantMap row = entry.toMap();
+        const QString ip = row.value("ip").toString();
+        const QString alias = row.value("iface").toString();
+        const QString state = row.value("state").toString();
+        if (ip.isEmpty() || ip == "Unavailable" || ip == "N/A") {
+            continue;
+        }
+        if (!state.isEmpty() && state.compare("Preferred", Qt::CaseInsensitive) != 0) {
+            continue;
+        }
+
+        const QString label = alias.isEmpty() ? ip : (alias + " (" + ip + ")");
+        if (row.value("guessedPublic").toBool()) {
+            publicInterfaces.append(label);
+        } else {
+            privateInterfaces.append(label);
+        }
+    }
+
+    const bool hasPublicInterface = !publicInterfaces.isEmpty();
+    const bool firewallAtRisk = firewallDisabled || inboundAllowByDefault;
+
+    out.append(MapOf({
+        {"type", "Interface"},
+        {"severity", hasPublicInterface ? "Medium" : "Low"},
+        {"title", hasPublicInterface ? "Possible public IPv4 assigned (heuristic)" : "No public IPv4 detected (heuristic)"},
+        {"detail", hasPublicInterface
+            ? ("Public: " + publicInterfaces.join(", ") + (privateInterfaces.isEmpty() ? "" : (" | Private: " + privateInterfaces.join(", "))))
+            : (privateInterfaces.isEmpty() ? "No active IPv4 address collected." : ("Private: " + privateInterfaces.join(", ")))},
+        {"recommendation", "Confirm WAN IP manually (NAT/port-forwarding may affect reachability)."}
+    }));
+
+    out.append(MapOf({
+        {"type", "Firewall"},
+        {"severity", firewallAtRisk ? "High" : "Low"},
+        {"title", "Firewall inbound posture"},
+        {"detail", firewallDisabled ? "Firewall profile disabled on at least one profile"
+                                   : (inboundAllowByDefault ? "Default inbound action is Allow on at least one profile"
+                                                           : "Firewall profiles enabled with restrictive inbound defaults")},
+        {"recommendation", firewallAtRisk ? "Enable firewall and set default inbound action to Block" : "No action required"}
+    }));
+
+    QSet<QString> seen;
+    for (const auto &entry : ports) {
+        const QVariantMap row = entry.toMap();
+        const QString bindScope = row.value("bindScope").toString();
+        if (bindScope != "Any" && bindScope != "Public") {
+            continue;
+        }
+
+        const QString risk = row.value("risk").toString();
+        const QString portStr = row.value("port").toString();
+        const QString protocol = row.value("protocol").toString();
+        const QString process = row.value("process").toString();
+
+        if (portStr.isEmpty()) {
+            continue;
+        }
+
+        QString severity = "Medium";
+        if (risk == "Critical") {
+            severity = "Critical";
+        } else if (risk == "High") {
+            severity = "High";
+        } else if (risk == "Low") {
+            severity = hasPublicInterface ? "Medium" : "Low";
+        }
+
+        if (hasPublicInterface && firewallAtRisk && (risk == "Critical" || risk == "High")) {
+            severity = "Critical";
+        } else if (hasPublicInterface && (risk == "Critical" || risk == "High")) {
+            severity = "High";
+        }
+
+        const QString key = protocol + "|" + portStr + "|" + process;
+        if (seen.contains(key)) {
+            continue;
+        }
+        seen.insert(key);
+
+        out.append(MapOf({
+            {"type", "Port"},
+            {"severity", severity},
+            {"title", QString("Listening on %1:%2 (%3)").arg(protocol, portStr, bindScope)},
+            {"detail", process + " | " + row.value("localAddress").toString()},
+            {"recommendation", (risk == "Critical" || risk == "High") ? "Block the port or restrict binding" : "Review service necessity"},
+            {"canBlock", (risk == "Critical" || risk == "High")},
+            {"process", process},
+            {"port", portStr}
+        }));
+
+        if (out.size() >= 60) {
+            break;
+        }
+    }
+
+    if (out.size() <= 2) {
+        out.append(MapOf({
+            {"type", "Port"},
+            {"severity", "Low"},
+            {"title", "No internet-facing high-risk ports detected"},
+            {"detail", "No ports bound to all interfaces were flagged as High/Critical in current scan."},
+            {"recommendation", "Keep system patched and firewall enabled"},
+            {"canBlock", false}
         }));
     }
 

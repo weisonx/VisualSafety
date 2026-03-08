@@ -13,6 +13,8 @@ class SecurityController final : public QObject
     Q_PROPERTY(QVariantList highRiskPermissions READ highRiskPermissions NOTIFY dataChanged)
     Q_PROPERTY(QVariantList credentials READ credentials NOTIFY dataChanged)
     Q_PROPERTY(QVariantList ports READ ports NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList publicExposure READ publicExposure NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList ipAddresses READ ipAddresses NOTIFY dataChanged)
     Q_PROPERTY(QVariantList firewallRules READ firewallRules NOTIFY dataChanged)
     Q_PROPERTY(QVariantList traffic READ traffic NOTIFY dataChanged)
     Q_PROPERTY(QVariantList alerts READ alerts NOTIFY dataChanged)
@@ -44,6 +46,8 @@ public:
     QVariantList highRiskPermissions() const;
     QVariantList credentials() const;
     QVariantList ports() const;
+    QVariantList publicExposure() const;
+    QVariantList ipAddresses() const;
     QVariantList firewallRules() const;
     QVariantList traffic() const;
     QVariantList alerts() const;
@@ -122,6 +126,8 @@ private:
     QVariantList scanAppMonitors() const;
     QVariantList scanPrivileges(bool isAdmin) const;
     QVariantList scanPorts(const QVariantList &apps) const;
+    QVariantList scanIpAddresses() const;
+    QVariantList scanPublicExposure(const QVariantList &ports, const QVariantList &firewallRules, const QVariantList &ipAddresses) const;
     QVariantList scanCredentials() const;
     QVariantList scanFirewallRules() const;
     QVariantList scanTraffic() const;
@@ -136,6 +142,8 @@ private:
     QVariantList m_highRiskPermissions;
     QVariantList m_credentials;
     QVariantList m_ports;
+    QVariantList m_publicExposure;
+    QVariantList m_ipAddresses;
     QVariantList m_firewallRules;
     QVariantList m_traffic;
     QVariantList m_alerts;

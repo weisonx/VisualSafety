@@ -6,6 +6,29 @@ import "../components"
 ScrollView {
     id: root
     clip: true
+    property string permissionsQuery: ""
+    property string appPermissionsQuery: ""
+
+    function matchesPermission(row) {
+        const q = permissionsQuery.trim().toLowerCase()
+        if (q.length === 0)
+            return true
+        const name = String(row.name || "").toLowerCase()
+        const scope = String(row.scope || "").toLowerCase()
+        const level = String(row.level || "").toLowerCase()
+        const status = String(row.status || "").toLowerCase()
+        return name.indexOf(q) >= 0 || scope.indexOf(q) >= 0 || level.indexOf(q) >= 0 || status.indexOf(q) >= 0
+    }
+
+    function matchesAppPermission(row) {
+        const q = appPermissionsQuery.trim().toLowerCase()
+        if (q.length === 0)
+            return true
+        const app = String(row.app || "").toLowerCase()
+        const permission = String(row.permission || "").toLowerCase()
+        const status = String(row.status || "").toLowerCase()
+        return app.indexOf(q) >= 0 || permission.indexOf(q) >= 0 || status.indexOf(q) >= 0
+    }
 
     ColumnLayout {
         width: root.availableWidth
@@ -16,9 +39,18 @@ ScrollView {
             title: I18n.tr("权限列表", "Permission List")
             icon: Icons.permission
 
+            ThemedTextField {
+                Layout.fillWidth: true
+                placeholderText: Icons.search + " " + I18n.tr("搜索权限 / 范围 / 状态", "Search permission / scope / status")
+                text: root.permissionsQuery
+                onTextEdited: root.permissionsQuery = text
+            }
+
             Repeater {
                 model: Security.permissions
                 delegate: Rectangle {
+                    visible: root.matchesPermission(modelData)
+                    Layout.preferredHeight: visible ? implicitHeight : 0
                     Layout.fillWidth: true
                     implicitHeight: 58
                     radius: 8
@@ -66,9 +98,18 @@ ScrollView {
             title: I18n.tr("应用权限情况", "App Permissions")
             icon: Icons.app
 
+            ThemedTextField {
+                Layout.fillWidth: true
+                placeholderText: Icons.search + " " + I18n.tr("搜索应用 / 权限 / 状态", "Search app / permission / status")
+                text: root.appPermissionsQuery
+                onTextEdited: root.appPermissionsQuery = text
+            }
+
             Repeater {
                 model: Security.appPermissions
                 delegate: Rectangle {
+                    visible: root.matchesAppPermission(modelData)
+                    Layout.preferredHeight: visible ? implicitHeight : 0
                     Layout.fillWidth: true
                     implicitHeight: 58
                     radius: 8

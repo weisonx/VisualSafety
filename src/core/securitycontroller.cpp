@@ -78,6 +78,8 @@ QVariantList SecurityController::appPermissions() const { return m_appPermission
 QVariantList SecurityController::highRiskPermissions() const { return m_highRiskPermissions; }
 QVariantList SecurityController::credentials() const { return m_credentials; }
 QVariantList SecurityController::ports() const { return m_ports; }
+QVariantList SecurityController::publicExposure() const { return m_publicExposure; }
+QVariantList SecurityController::ipAddresses() const { return m_ipAddresses; }
 QVariantList SecurityController::firewallRules() const { return m_firewallRules; }
 QVariantList SecurityController::traffic() const { return m_traffic; }
 QVariantList SecurityController::alerts() const { return m_alerts; }
@@ -255,6 +257,8 @@ void SecurityController::refreshData()
     m_ports = scanPorts(m_appMonitors);
     m_credentials = scanCredentials();
     m_firewallRules = scanFirewallRules();
+    m_ipAddresses = scanIpAddresses();
+    m_publicExposure = scanPublicExposure(m_ports, m_firewallRules, m_ipAddresses);
     m_traffic = scanTraffic();
 
     m_appPermissions = deriveAppPermissions(m_appMonitors, m_ports);

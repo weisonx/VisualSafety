@@ -10,6 +10,7 @@ QString EmojiIcons::permission() const { return QString::fromUtf8("\xF0\x9F\x94\
 QString EmojiIcons::credential() const { return QString::fromUtf8("\xF0\x9F\x97\x9D\xEF\xB8\x8F"); }
 QString EmojiIcons::port() const { return QString::fromUtf8("\xF0\x9F\x94\x8C"); }
 QString EmojiIcons::network() const { return QString::fromUtf8("\xF0\x9F\x8C\x90"); }
+QString EmojiIcons::exposure() const { return QString::fromUtf8("\xF0\x9F\x93\xA1"); }
 QString EmojiIcons::alert() const { return QString::fromUtf8("\xF0\x9F\x9A\xA8"); }
 QString EmojiIcons::log() const { return QString::fromUtf8("\xF0\x9F\x93\x9D"); }
 QString EmojiIcons::app() const { return QString::fromUtf8("\xF0\x9F\xA7\xA9"); }

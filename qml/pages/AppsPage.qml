@@ -5,6 +5,18 @@ import "../components"
 
 Item {
     id: root
+    property string query: ""
+
+    function matchesApp(row) {
+        const q = query.trim().toLowerCase()
+        if (q.length === 0)
+            return true
+        const app = String(row.app || "").toLowerCase()
+        const pid = String(row.pid || "").toLowerCase()
+        const hint = String(row.hint || "").toLowerCase()
+        const trust = String(row.trust || "").toLowerCase()
+        return app.indexOf(q) >= 0 || pid.indexOf(q) >= 0 || hint.indexOf(q) >= 0 || trust.indexOf(q) >= 0
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -15,6 +27,13 @@ Item {
             Layout.fillHeight: true
             title: I18n.tr("应用监控列表", "App Monitor List")
             icon: Icons.app
+
+            ThemedTextField {
+                Layout.fillWidth: true
+                placeholderText: Icons.search + " " + I18n.tr("搜索应用 / PID / 标签", "Search app / PID / tags")
+                text: root.query
+                onTextEdited: root.query = text
+            }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -34,6 +53,8 @@ Item {
                     delegate: Rectangle {
                         required property var modelData
 
+                        visible: root.matchesApp(modelData)
+                        height: visible ? implicitHeight : 0
                         width: ListView.view.width
                         implicitHeight: 90
                         radius: 8

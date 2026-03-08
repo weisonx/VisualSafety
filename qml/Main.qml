@@ -33,6 +33,7 @@ ApplicationWindow {
         { title: I18n.tr("凭证", "Credentials"), icon: Icons.credential },
         { title: I18n.tr("端口", "Ports"), icon: Icons.port },
         { title: I18n.tr("网络", "Network"), icon: Icons.network },
+        { title: I18n.tr("公网暴露", "Exposure"), icon: Icons.exposure },
         { title: I18n.tr("告警", "Alerts"), icon: Icons.alert },
         { title: I18n.tr("日志", "Logs"), icon: Icons.log },
         { title: I18n.tr("应用", "Apps"), icon: Icons.app },
@@ -170,6 +171,7 @@ ApplicationWindow {
                 CredentialsPage {}
                 PortsPage {}
                 NetworkPage {}
+                PublicExposurePage {}
                 AlertsPage {}
                 LogsPage {}
                 AppsPage {}

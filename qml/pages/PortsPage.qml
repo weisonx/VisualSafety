@@ -43,6 +43,15 @@ ScrollView {
                         }
 
                         StatusTag {
+                            text: modelData.bindScope === "Any" ? I18n.tr("全网监听", "All IF")
+                                : modelData.bindScope === "Public" ? I18n.tr("公网IP", "Public IP")
+                                : modelData.bindScope === "Private" ? I18n.tr("私网", "Private")
+                                : I18n.tr("本机", "Local")
+                            tone: (modelData.bindScope === "Any" || modelData.bindScope === "Public") ? "warning"
+                                : modelData.bindScope === "Private" ? "normal" : "success"
+                        }
+
+                        StatusTag {
                             text: I18n.riskLabel(modelData.risk)
                             tone: modelData.risk === "Critical" ? "danger"
                                 : modelData.risk === "High" ? "warning"
