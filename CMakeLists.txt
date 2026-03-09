@@ -36,7 +36,7 @@ qt_add_qml_module(appVisualSafety
         qml/pages/CredentialsPage.qml
         qml/pages/LogsPage.qml
         qml/pages/NetworkPage.qml
-        qml/pages/PublicExposurePage.qml
+        qml/pages/PublicPage.qml
         qml/pages/OverviewPage.qml
         qml/pages/PermissionsPage.qml
         qml/pages/PortsPage.qml

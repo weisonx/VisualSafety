@@ -43,12 +43,14 @@ ScrollView {
                         }
 
                         StatusTag {
-                            text: modelData.bindScope === "Any" ? I18n.tr("全网监听", "All IF")
-                                : modelData.bindScope === "Public" ? I18n.tr("公网IP", "Public IP")
-                                : modelData.bindScope === "Private" ? I18n.tr("私网", "Private")
-                                : I18n.tr("本机", "Local")
+                            text: modelData.bindScope === "Any" ? I18n.tr("对外监听", "All IF")
+                                : modelData.bindScope === "Public" ? I18n.tr("绑定公网", "Public bind")
+                                : modelData.bindScope === "Private" ? I18n.tr("内网监听", "LAN")
+                                : modelData.bindScope === "Loopback" ? I18n.tr("仅本机", "Loopback")
+                                : I18n.tr("未知", "Unknown")
                             tone: (modelData.bindScope === "Any" || modelData.bindScope === "Public") ? "warning"
-                                : modelData.bindScope === "Private" ? "normal" : "success"
+                                : modelData.bindScope === "Private" ? "normal"
+                                : modelData.bindScope === "Loopback" ? "success" : "normal"
                         }
 
                         StatusTag {
