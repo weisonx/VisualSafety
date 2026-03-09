@@ -134,6 +134,7 @@ private:
     QVariantList scanEventAlerts() const;
     QVariantList deriveAppPermissions(const QVariantList &apps, const QVariantList &ports) const;
     QVariantList deriveHighRiskPermissions(const QVariantList &apps, const QVariantList &ports) const;
+    QVariantList annotateAppMonitors(const QVariantList &apps, const QVariantList &ports) const;
     QVariantList derivePermissions(const QVariantList &firewallRules, bool isAdmin) const;
     QVariantList deriveAlerts(const QVariantList &highRiskPermissions, const QVariantList &traffic) const;
 

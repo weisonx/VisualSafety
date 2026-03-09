@@ -262,6 +262,72 @@ QString RiskForPrivilege(const QString &name)
     }
     return "Medium";
 }
+
+int RiskScore(const QString &value)
+{
+    const QString key = Normalize(value);
+    if (key == "critical") {
+        return 4;
+    }
+    if (key == "high") {
+        return 3;
+    }
+    if (key == "medium") {
+        return 2;
+    }
+    if (key == "low") {
+        return 1;
+    }
+    return 0;
+}
+
+QString ToneForRiskScore(int score)
+{
+    if (score >= 4) {
+        return "danger";
+    }
+    if (score >= 3) {
+        return "warning";
+    }
+    if (score >= 1) {
+        return "normal";
+    }
+    return "success";
+}
+
+bool LooksLikeShell(const QString &name)
+{
+    const QString key = Normalize(name);
+    return key.contains("powershell") || key == "cmd.exe" || key == "pwsh.exe";
+}
+
+bool LooksLikeScriptingRuntime(const QString &name)
+{
+    const QString key = Normalize(name);
+    return key.contains("python") || key.contains("node") || key.contains("ruby") || key.contains("perl");
+}
+
+bool LooksLikeBrowser(const QString &name)
+{
+    const QString key = Normalize(name);
+    return key.contains("chrome") || key.contains("msedge") || key.contains("firefox") || key.contains("browser") ||
+        key.contains("wechat") || key.contains("qqbrowser");
+}
+
+bool LooksLikeRemoteAccess(const QString &name)
+{
+    const QString key = Normalize(name);
+    return key.contains("mstsc") || key.contains("rdp") || key.contains("remote") || key.contains("teamviewer") ||
+        key.contains("anydesk") || key.contains("vnc");
+}
+
+bool LooksLikeTunnelOrVpn(const QString &name)
+{
+    const QString key = Normalize(name);
+    return key.contains("frp") || key.contains("frpc") || key.contains("frps") || key.contains("nps") ||
+        key.contains("ngrok") || key.contains("tailscale") || key.contains("wireguard") || key.contains("openvpn") ||
+        key.contains("zerotier") || key.contains("clash") || key.contains("v2ray") || key.contains("xray");
+}
 }
 
 QVariantList SecurityController::scanAppMonitors() const
@@ -314,6 +380,95 @@ QVariantList SecurityController::scanAppMonitors() const
             {"status", "Unavailable"},
             {"hint", "tasklist returned no parsable process rows"}
         }));
+    }
+
+    return out;
+}
+
+QVariantList SecurityController::annotateAppMonitors(const QVariantList &apps, const QVariantList &ports) const
+{
+    struct PortAgg {
+        bool listening = false;
+        bool publicListening = false;
+        int maxRisk = 0;
+        int maxPublicRisk = 0;
+    };
+
+    QHash<QString, PortAgg> portAgg;
+    for (const auto &entry : ports) {
+        const QVariantMap row = entry.toMap();
+        const QString process = row.value("process").toString();
+        if (process.isEmpty()) {
+            continue;
+        }
+
+        const QString key = Normalize(process);
+        PortAgg agg = portAgg.value(key);
+        agg.listening = true;
+
+        const int score = RiskScore(row.value("risk").toString());
+        agg.maxRisk = std::max(agg.maxRisk, score);
+
+        const QString bindScope = row.value("bindScope").toString();
+        if (bindScope == "Any" || bindScope == "Public") {
+            agg.publicListening = true;
+            agg.maxPublicRisk = std::max(agg.maxPublicRisk, score);
+        }
+
+        portAgg.insert(key, agg);
+    }
+
+    QVariantList out;
+    out.reserve(apps.size());
+
+    for (const auto &entry : apps) {
+        QVariantMap row = entry.toMap();
+        const QString app = row.value("app").toString();
+        const QString trust = row.value("trust").toString();
+
+        QVariantList tags;
+
+        const QString appKey = Normalize(app);
+        if (LooksLikeShell(app)) {
+            tags.append(MapOf({{"zh", "命令行"}, {"en", "Shell"}, {"tone", trust == "Untrusted" ? "danger" : "warning"}}));
+        } else if (LooksLikeScriptingRuntime(app)) {
+            tags.append(MapOf({{"zh", "脚本运行时"}, {"en", "Script runtime"}, {"tone", trust == "Untrusted" ? "warning" : "normal"}}));
+        }
+
+        if (LooksLikeTunnelOrVpn(app)) {
+            tags.append(MapOf({{"zh", "内网穿透/VPN"}, {"en", "Tunnel/VPN"}, {"tone", "warning"}}));
+        }
+
+        if (LooksLikeRemoteAccess(app)) {
+            tags.append(MapOf({{"zh", "远程访问"}, {"en", "Remote access"}, {"tone", "warning"}}));
+        }
+
+        if (LooksLikeBrowser(app)) {
+            tags.append(MapOf({{"zh", "浏览器"}, {"en", "Browser"}, {"tone", "normal"}}));
+        }
+
+        if (portAgg.contains(appKey)) {
+            const PortAgg agg = portAgg.value(appKey);
+            if (agg.listening) {
+                tags.append(MapOf({{"zh", "监听端口"}, {"en", "Listening"}, {"tone", "normal"}}));
+            }
+            if (agg.publicListening) {
+                const QString tone = ToneForRiskScore(std::max(agg.maxPublicRisk, 3));
+                tags.append(MapOf({{"zh", "对外监听"}, {"en", "Public listener"}, {"tone", tone}}));
+            }
+            if (agg.maxRisk >= 4) {
+                tags.append(MapOf({{"zh", "严重端口"}, {"en", "Critical port"}, {"tone", "danger"}}));
+            } else if (agg.maxRisk >= 3) {
+                tags.append(MapOf({{"zh", "高危端口"}, {"en", "High-risk port"}, {"tone", "warning"}}));
+            }
+        }
+
+        while (tags.size() > 5) {
+            tags.removeLast();
+        }
+
+        row.insert("tags", tags);
+        out.append(row);
     }
 
     return out;

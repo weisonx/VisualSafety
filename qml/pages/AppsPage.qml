@@ -56,7 +56,7 @@ Item {
                         visible: root.matchesApp(modelData)
                         height: visible ? implicitHeight : 0
                         width: ListView.view.width
-                        implicitHeight: 90
+                        implicitHeight: 108
                         radius: 8
                         color: Theme.cardAltBg
                         border.width: 1
@@ -82,6 +82,19 @@ Item {
                                     text: I18n.trustLabel(modelData.trust)
                                     tone: modelData.trust === "Trusted" ? "success"
                                         : modelData.trust === "Untrusted" ? "danger" : "warning"
+                                }
+                            }
+
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                Repeater {
+                                    model: modelData.tags || []
+                                    delegate: StatusTag {
+                                        text: I18n.tr(modelData.zh, modelData.en)
+                                        tone: modelData.tone || "normal"
+                                    }
                                 }
                             }
 

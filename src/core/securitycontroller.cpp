@@ -255,6 +255,7 @@ void SecurityController::refreshData()
 
     m_appMonitors = scanAppMonitors();
     m_ports = scanPorts(m_appMonitors);
+    m_appMonitors = annotateAppMonitors(m_appMonitors, m_ports);
     m_credentials = scanCredentials();
     m_firewallRules = scanFirewallRules();
     m_ipAddresses = scanIpAddresses();
