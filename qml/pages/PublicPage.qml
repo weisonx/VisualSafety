@@ -1,45 +1,11 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Qt.labs.settings
 import "../components"
 
 ScrollView {
     id: root
     clip: true
-
-    Settings {
-        id: publicSettings
-        category: "public"
-        property string wanIp: ""
-        property string ipPublicFlagsJson: "{}"
-        property bool portForwardEnabled: false
-        property bool dmzEnabled: false
-        property string forwardedPortsCsv: ""
-        property bool tunnelEnabled: false
-        property string tunnelPortsCsv: ""
-    }
-
-    function loadIpFlags() {
-        try { return JSON.parse(publicSettings.ipPublicFlagsJson || "{}") } catch (e) { return {} }
-    }
-
-    function saveIpFlags(flags) {
-        try { publicSettings.ipPublicFlagsJson = JSON.stringify(flags || {}) } catch (e) { publicSettings.ipPublicFlagsJson = "{}" }
-    }
-
-    function isIpMarkedPublic(ip, guessedPublic) {
-        const flags = loadIpFlags()
-        if (flags.hasOwnProperty(ip))
-            return flags[ip] === true
-        return guessedPublic === true
-    }
-
-    function setIpMarkedPublic(ip, value) {
-        const flags = loadIpFlags()
-        flags[ip] = value === true
-        saveIpFlags(flags)
-    }
 
     function localIps() {
         const out = []
@@ -60,14 +26,14 @@ ScrollView {
             const ip = String(row.ip || "")
             if (!ip || ip === "Unavailable" || ip === "N/A")
                 continue
-            if (isIpMarkedPublic(ip, row.guessedPublic === true))
+            if (Config.isIpMarkedPublic(ip, row.guessedPublic === true))
                 out.push(ip)
         }
         return out
     }
 
     function isDirectPublic() {
-        const wanIps = parseWanIps(publicSettings.wanIp)
+        const wanIps = parseWanIps(Config.wanIps)
         if (wanIps.length === 0)
             return false
         const local = localMarkedPublicIps()
@@ -131,7 +97,7 @@ ScrollView {
     }
 
     function hasWanIp() {
-        return parseWanIps(publicSettings.wanIp).length > 0
+        return parseWanIps(Config.wanIps).length > 0
     }
 
     function exposureStatus(portRow) {
@@ -142,9 +108,9 @@ ScrollView {
         const port = String(portRow.port || "")
         const inboundOpen = firewallInboundOpenHeuristic()
 
-        const forwarded = publicSettings.dmzEnabled === true
-            || (publicSettings.portForwardEnabled === true && parsePortsCsv(publicSettings.forwardedPortsCsv).hasOwnProperty(port))
-        const tunneled = publicSettings.tunnelEnabled === true && parsePortsCsv(publicSettings.tunnelPortsCsv).hasOwnProperty(port)
+        const forwarded = Config.dmzEnabled === true
+            || (Config.portForwardEnabled === true && parsePortsCsv(Config.forwardedPortsCsv).hasOwnProperty(port))
+        const tunneled = Config.tunnelEnabled === true && parsePortsCsv(Config.tunnelPortsCsv).hasOwnProperty(port)
 
         // 内网穿透会绕过 NAT：即使只监听 127.0.0.1，本地端口也可能被暴露。
         if (tunneled)
@@ -230,8 +196,8 @@ ScrollView {
             ThemedTextField {
                 Layout.fillWidth: true
                 placeholderText: I18n.tr("输入你的公网 IP（WAN，可多个，用逗号/空格分隔）", "Enter your public IPs (WAN; multiple allowed, comma/space separated)")
-                text: publicSettings.wanIp
-                onEditingFinished: publicSettings.wanIp = text.trim()
+                text: Config.wanIps
+                onEditingFinished: Config.wanIps = text.trim()
             }
 
             RowLayout {
@@ -293,8 +259,8 @@ ScrollView {
 
                         CheckBox {
                             text: I18n.tr("公网IP", "Public")
-                            checked: root.isIpMarkedPublic(String(modelData.ip), modelData.guessedPublic === true)
-                            onToggled: root.setIpMarkedPublic(String(modelData.ip), checked)
+                            checked: Config.isIpMarkedPublic(String(modelData.ip), modelData.guessedPublic === true)
+                            onToggled: Config.setIpMarkedPublic(String(modelData.ip), checked)
                         }
                     }
                 }
@@ -312,20 +278,20 @@ ScrollView {
 
                 ThemedSwitch {
                     text: I18n.tr("已配置端口转发", "Port forwarding enabled")
-                    checked: publicSettings.portForwardEnabled
-                    onToggled: publicSettings.portForwardEnabled = checked
+                    checked: Config.portForwardEnabled
+                    onToggled: Config.portForwardEnabled = checked
                 }
 
                 ThemedSwitch {
                     text: I18n.tr("DMZ（全端口）", "DMZ (all ports)")
-                    checked: publicSettings.dmzEnabled
-                    onToggled: publicSettings.dmzEnabled = checked
+                    checked: Config.dmzEnabled
+                    onToggled: Config.dmzEnabled = checked
                 }
 
                 ThemedSwitch {
                     text: I18n.tr("内网穿透（FRP/NPS 等）", "Tunneling (FRP/NPS)")
-                    checked: publicSettings.tunnelEnabled
-                    onToggled: publicSettings.tunnelEnabled = checked
+                    checked: Config.tunnelEnabled
+                    onToggled: Config.tunnelEnabled = checked
                 }
             }
 
@@ -338,17 +304,17 @@ ScrollView {
                 ThemedTextField {
                     Layout.fillWidth: true
                     placeholderText: I18n.tr("转发端口列表（逗号分隔，如 3389,80,443）", "Forwarded ports CSV (e.g. 3389,80,443)")
-                    text: publicSettings.forwardedPortsCsv
-                    enabled: publicSettings.portForwardEnabled && !publicSettings.dmzEnabled
-                    onEditingFinished: publicSettings.forwardedPortsCsv = text.trim()
+                    text: Config.forwardedPortsCsv
+                    enabled: Config.portForwardEnabled && !Config.dmzEnabled
+                    onEditingFinished: Config.forwardedPortsCsv = text.trim()
                 }
 
                 ThemedTextField {
                     Layout.fillWidth: true
                     placeholderText: I18n.tr("穿透端口列表（逗号分隔，如 22,3389）", "Tunneled ports CSV (e.g. 22,3389)")
-                    text: publicSettings.tunnelPortsCsv
-                    enabled: publicSettings.tunnelEnabled
-                    onEditingFinished: publicSettings.tunnelPortsCsv = text.trim()
+                    text: Config.tunnelPortsCsv
+                    enabled: Config.tunnelEnabled
+                    onEditingFinished: Config.tunnelPortsCsv = text.trim()
                 }
             }
         }

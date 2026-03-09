@@ -11,6 +11,7 @@ qt_standard_project_setup(REQUIRES 6.8)
 
 qt_add_executable(appVisualSafety
     src/main.cpp
+    src/core/appconfig.cpp
     src/core/securitycontroller.cpp
     src/core/securitycontroller_collectors.cpp
     src/core/thememanager.cpp
@@ -41,6 +42,7 @@ qt_add_qml_module(appVisualSafety
         qml/pages/PermissionsPage.qml
         qml/pages/PortsPage.qml
     SOURCES
+        src/core/appconfig.h
         src/core/securitycontroller.h
         src/core/thememanager.h
         src/icons/emojiicons.h

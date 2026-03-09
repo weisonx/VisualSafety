@@ -4,6 +4,7 @@
 #include <QQuickWindow>
 #include <QColor>
 
+#include "core/appconfig.h"
 #include "core/securitycontroller.h"
 #include "core/thememanager.h"
 #include "icons/emojiicons.h"
@@ -55,11 +56,13 @@ int main(int argc, char *argv[])
 
     ThemeManager theme;
     SecurityController security;
+    AppConfig config;
     EmojiIcons icons;
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("Theme", &theme);
     engine.rootContext()->setContextProperty("Security", &security);
+    engine.rootContext()->setContextProperty("Config", &config);
     engine.rootContext()->setContextProperty("Icons", &icons);
 
     QObject::connect(
