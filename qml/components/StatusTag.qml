@@ -8,10 +8,6 @@ Rectangle {
     property string tip: ""
 
     HoverHandler { id: tagHover }
-    ToolTip.delay: 350
-    ToolTip.timeout: 8000
-    ToolTip.visible: tagHover.hovered && ((root.tip.length > 0) || (root.text.length > 0))
-    ToolTip.text: root.tip.length > 0 ? root.tip : root.text
 
     radius: 10
     height: 24

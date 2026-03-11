@@ -6,6 +6,79 @@ import "../components"
 ScrollView {
     id: root
     clip: true
+    readonly property var ctl: Security.controls
+
+    function missingRealtimePrereqs() {
+        if (!root.ctl)
+            return false
+        const psOk = (root.ctl.powershellScriptBlockLoggingKnown === true && root.ctl.powershellScriptBlockLoggingEnabled === true)
+        const auditOk = (root.ctl.auditProcessCreationKnown === true && root.ctl.auditProcessCreationEnabled === true)
+        const cmdOk = (root.ctl.processCreationCmdlineKnown === true && root.ctl.processCreationCmdlineEnabled === true)
+        return !(psOk && auditOk && cmdOk)
+    }
+
+    Dialog {
+        id: prereqGuide
+        parent: root.Window.window ? root.Window.window.contentItem : root
+        modal: true
+        title: I18n.tr("启用实时监控指引（仅展示，不自动修改）", "Enable Realtime Monitoring Guide (display only)")
+        standardButtons: Dialog.Ok
+        width: Math.min(760, root.width * 0.92)
+
+        ColumnLayout {
+            spacing: 10
+            width: parent.width
+
+            Label {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: Theme.textSecondary
+                text: I18n.tr(
+                          "提示：以下命令需要管理员 PowerShell 执行。启用后建议运行 gpupdate /force，并重新打开本程序以生效。",
+                          "Tip: Run these commands in an elevated PowerShell. After enabling, consider `gpupdate /force` and restart this app.")
+            }
+
+            TextArea {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 360
+                readOnly: true
+                wrapMode: TextArea.Wrap
+                text: I18n.tr(
+                          "1) 启用 PowerShell Script Block Logging (4104)\n"
+                          + "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null\n"
+                          + "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name EnableScriptBlockLogging -Type DWord -Value 1\n\n"
+                          + "2) （可选）启用 PowerShell Module Logging (4103)\n"
+                          + "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Force | Out-Null\n"
+                          + "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Name EnableModuleLogging -Type DWord -Value 1\n\n"
+                          + "3) 启用进程创建审计 (4688)\n"
+                          + "auditpol /set /subcategory:\"Process Creation\" /success:enable /failure:enable\n\n"
+                          + "4) 在 4688 中记录命令行\n"
+                          + "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Force | Out-Null\n"
+                          + "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Name ProcessCreationIncludeCmdLine_Enabled -Type DWord -Value 1\n\n"
+                          + "5) 刷新策略\n"
+                          + "gpupdate /force\n",
+                          "1) Enable PowerShell Script Block Logging (4104)\n"
+                          + "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Force | Out-Null\n"
+                          + "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging' -Name EnableScriptBlockLogging -Type DWord -Value 1\n\n"
+                          + "2) (Optional) Enable PowerShell Module Logging (4103)\n"
+                          + "New-Item -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Force | Out-Null\n"
+                          + "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging' -Name EnableModuleLogging -Type DWord -Value 1\n\n"
+                          + "3) Enable process creation auditing (4688)\n"
+                          + "auditpol /set /subcategory:\"Process Creation\" /success:enable /failure:enable\n\n"
+                          + "4) Include command line in 4688\n"
+                          + "New-Item -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Force | Out-Null\n"
+                          + "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\Audit' -Name ProcessCreationIncludeCmdLine_Enabled -Type DWord -Value 1\n\n"
+                          + "5) Refresh policy\n"
+                          + "gpupdate /force\n")
+                background: Rectangle {
+                    radius: 8
+                    color: Theme.inputBg
+                    border.width: 1
+                    border.color: Theme.borderColor
+                }
+            }
+        }
+    }
 
     ColumnLayout {
         width: root.availableWidth
@@ -34,6 +107,13 @@ ScrollView {
                     onToggled: Security.autoKillUntrustedShell = checked
                     tip: I18n.tr("检测到不可信 Shell 行为时尝试终止进程（高风险操作）。", "Attempt to terminate untrusted shells (high-impact action).")
                 }
+
+                ThemedSwitch {
+                    text: I18n.tr("实时事件监控", "Realtime event monitoring")
+                    checked: Security.realtimeEnabled
+                    onToggled: Security.realtimeEnabled = checked
+                    tip: I18n.tr("后台定时拉取事件日志并追加到告警列表（轻量实现）。", "Periodically polls event logs and appends alerts (lightweight).")
+                }
             }
 
             ThemedTextField {
@@ -55,6 +135,44 @@ ScrollView {
             ThemedButton {
                 text: I18n.tr("立即执行策略", "Apply Policy Now")
                 onClicked: Security.applyPolicyNow()
+            }
+        }
+
+        SectionCard {
+            Layout.fillWidth: true
+            visible: Security.realtimeEnabled && root.missingRealtimePrereqs()
+            title: I18n.tr("实时监控依赖未满足", "Realtime prerequisites missing")
+            icon: Icons.warning
+            tip: I18n.tr("未启用审计/日志策略时，实时监控会显著缺失关键证据（如 4104/4688）。", "If auditing/logging is disabled, realtime evidence (4104/4688) will be missing.")
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                StatusTag {
+                    text: I18n.tr("4104 脚本块", "4104 ScriptBlock")
+                    tone: (root.ctl && root.ctl.powershellScriptBlockLoggingEnabled === true) ? "success" : "warning"
+                    tip: I18n.tr("PowerShell Script Block Logging（推荐）。", "PowerShell Script Block Logging (recommended).")
+                }
+
+                StatusTag {
+                    text: I18n.tr("4688 进程创建", "4688 Proc Create")
+                    tone: (root.ctl && root.ctl.auditProcessCreationEnabled === true) ? "success" : "warning"
+                    tip: I18n.tr("安全日志进程创建审计。", "Security log auditing for process creation.")
+                }
+
+                StatusTag {
+                    text: I18n.tr("命令行", "Command line")
+                    tone: (root.ctl && root.ctl.processCreationCmdlineEnabled === true) ? "success" : "warning"
+                    tip: I18n.tr("4688 记录命令行用于研判。", "Include command line in 4688 for investigation.")
+                }
+
+                Item { Layout.fillWidth: true }
+
+                ThemedButton {
+                    text: I18n.tr("打开指引", "Open Guide")
+                    onClicked: prereqGuide.open()
+                }
             }
         }
 
@@ -98,11 +216,7 @@ ScrollView {
                                 font.bold: true
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
-                                ToolTip.delay: 350
-                                ToolTip.timeout: 8000
                                 HoverHandler { id: titleHover }
-                                ToolTip.visible: titleHover.hovered
-                                ToolTip.text: String(modelData.title || "") + "\n" + String(modelData.detail || "")
                             }
 
                             StatusTag {
@@ -111,6 +225,13 @@ ScrollView {
                                     : modelData.severity === "High" ? "warning" : "normal"
                                 tip: I18n.tr("严重级别用于决定优先级与处置方式。", "Severity indicates triage priority and response.")
                             }
+
+                            ThemedButton {
+                                visible: modelData.canBlock === true
+                                enabled: modelData.canBlock === true
+                                text: Icons.block + " " + I18n.tr("阻断", "Block")
+                                onClicked: Security.blockAction(String(modelData.blockSource || ""), String(modelData.blockAction || ""))
+                            }
                         }
 
                         Label {
@@ -118,11 +239,7 @@ ScrollView {
                             color: Theme.textSecondary
                             Layout.fillWidth: true
                             wrapMode: Text.WordWrap
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
                             HoverHandler { id: detailHover }
-                            ToolTip.visible: detailHover.hovered
-                            ToolTip.text: String(modelData.detail || "")
                         }
                     }
                 }

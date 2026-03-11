@@ -333,6 +333,57 @@ bool LooksLikeTunnelOrVpn(const QString &name)
 QVariantList SecurityController::scanAppMonitors() const
 {
     QVariantList out;
+
+    // Prefer richer evidence (path/command line/parent pid) when possible.
+    const QString psScript =
+        "try { "
+        "Get-CimInstance Win32_Process | "
+        "Select-Object Name,ProcessId,ParentProcessId,ExecutablePath,CommandLine | "
+        "Select-Object -First 350 | "
+        "ConvertTo-Json -Compress "
+        "} catch { '[]' }";
+
+    const CommandResult ps = RunProcess("powershell", {"-NoProfile", "-Command", psScript}, 12000);
+    if (ps.finished && ps.exitCode == 0) {
+        const QByteArray jsonBytes = ps.out.toUtf8().trimmed();
+        QJsonParseError error{};
+        const QJsonDocument doc = QJsonDocument::fromJson(jsonBytes, &error);
+        if (error.error == QJsonParseError::NoError) {
+            auto appendProc = [&](const QJsonObject &obj) {
+                const QString app = obj.value("Name").toString();
+                const int pid = obj.value("ProcessId").toInt();
+                if (app.trimmed().isEmpty() || pid <= 0) {
+                    return;
+                }
+                out.append(MapOf({
+                    {"app", app},
+                    {"pid", QString::number(pid)},
+                    {"ppid", QString::number(obj.value("ParentProcessId").toInt())},
+                    {"path", obj.value("ExecutablePath").toString()},
+                    {"cmdline", obj.value("CommandLine").toString()},
+                    {"trust", ClassifyTrust(app)},
+                    {"status", "Running"},
+                    {"hint", ProcessHint(app)}
+                }));
+            };
+
+            if (doc.isArray()) {
+                for (const auto &value : doc.array()) {
+                    if (value.isObject()) {
+                        appendProc(value.toObject());
+                    }
+                }
+            } else if (doc.isObject()) {
+                appendProc(doc.object());
+            }
+        }
+    }
+
+    if (!out.isEmpty()) {
+        return out;
+    }
+
+    // Fallback: tasklist (minimal evidence).
     const CommandResult result = RunProcess("tasklist", {"/FO", "CSV", "/NH"});
     if (!result.finished || result.exitCode != 0) {
         out.append(MapOf({
@@ -1022,6 +1073,40 @@ QVariantMap SecurityController::scanControls(const QVariantList &firewallRules, 
         "try { (Get-SmbServerConfiguration -ErrorAction Stop).EnableSMB1Protocol } catch { 'Unknown' }",
         &smb1Known);
 
+    bool psSblKnown = false;
+    const int psSbl = readPsInt(
+        "(Get-ItemProperty 'HKLM:\\\\SOFTWARE\\\\Policies\\\\Microsoft\\\\Windows\\\\PowerShell\\\\ScriptBlockLogging' "
+        "-Name EnableScriptBlockLogging -ErrorAction SilentlyContinue).EnableScriptBlockLogging",
+        &psSblKnown);
+    const bool psScriptBlockLoggingEnabled = psSblKnown ? (psSbl == 1) : false;
+
+    bool psModKnown = false;
+    const int psMod = readPsInt(
+        "(Get-ItemProperty 'HKLM:\\\\SOFTWARE\\\\Policies\\\\Microsoft\\\\Windows\\\\PowerShell\\\\ModuleLogging' "
+        "-Name EnableModuleLogging -ErrorAction SilentlyContinue).EnableModuleLogging",
+        &psModKnown);
+    const bool psModuleLoggingEnabled = psModKnown ? (psMod == 1) : false;
+
+    bool audit4688Known = false;
+    bool audit4688Enabled = false;
+    {
+        const CommandResult result = RunProcess("auditpol", {"/get", "/subcategory:Process Creation"}, 8000);
+        if (result.finished && result.exitCode == 0) {
+            audit4688Known = true;
+            const QString text = MergedOutput(result).toLower();
+            const bool disabled = text.contains("no auditing") || text.contains("无审核") || text.contains("未审核");
+            const bool enabled = text.contains("success") || text.contains("failure") || text.contains("成功") || text.contains("失败");
+            audit4688Enabled = (!disabled) && enabled;
+        }
+    }
+
+    bool cmdlineKnown = false;
+    const int cmdlineValue = readPsInt(
+        "(Get-ItemProperty 'HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Policies\\\\System\\\\Audit' "
+        "-Name ProcessCreationIncludeCmdLine_Enabled -ErrorAction SilentlyContinue).ProcessCreationIncludeCmdLine_Enabled",
+        &cmdlineKnown);
+    const bool cmdlineEnabled = cmdlineKnown ? (cmdlineValue == 1) : false;
+
     return MapOf({
         {"isAdmin", isAdmin},
         {"firewallAnyDisabled", firewallAnyDisabled},
@@ -1033,7 +1118,15 @@ QVariantMap SecurityController::scanControls(const QVariantList &firewallRules, 
         {"fileSharingFirewallKnown", shareFwKnown},
         {"fileSharingEnabled", fileSharingEnabled},
         {"smb1Known", smb1Known},
-        {"smb1Enabled", smb1Enabled}
+        {"smb1Enabled", smb1Enabled},
+        {"powershellScriptBlockLoggingKnown", psSblKnown},
+        {"powershellScriptBlockLoggingEnabled", psScriptBlockLoggingEnabled},
+        {"powershellModuleLoggingKnown", psModKnown},
+        {"powershellModuleLoggingEnabled", psModuleLoggingEnabled},
+        {"auditProcessCreationKnown", audit4688Known},
+        {"auditProcessCreationEnabled", audit4688Enabled},
+        {"processCreationCmdlineKnown", cmdlineKnown},
+        {"processCreationCmdlineEnabled", cmdlineEnabled}
     });
 }
 
@@ -1104,37 +1197,55 @@ QVariantList SecurityController::scanTraffic() const
     return out;
 }
 
-QVariantList SecurityController::scanEventAlerts() const
+QVariantList SecurityController::scanEventAlertsSince(const QDateTime &since, QDateTime *newestEventTime) const
 {
     QVariantList out;
 
+    const QDateTime start = since.isValid() ? since : QDateTime::currentDateTime().addSecs(-6 * 60 * 60);
+    const QString startIso = start.toString(Qt::ISODate);
+
     const QString psScript =
-        "$start=(Get-Date).AddHours(-6);"
-        "$logs=@("
-        "'Microsoft-Windows-Windows Defender/Operational',"
-        "'Microsoft-Windows-PowerShell/Operational',"
-        "'Security',"
-        "'System'"
+        "$start=[datetime]::Parse('" + psQuote(startIso) + "');"
+        "$queries=@("
+        "  @{ log='Microsoft-Windows-PowerShell/Operational'; ids=@(4104,4103,400,403); max=40 },"
+        "  @{ log='Security'; ids=@(4688,4689); max=40 },"
+        "  @{ log='System'; ids=@(7045); max=20 },"
+        "  @{ log='Microsoft-Windows-Windows Defender/Operational'; ids=@(1116,1117,1121); max=30 }"
         ");"
         "$ev=@();"
-        "foreach($l in $logs){"
+        "foreach($q in $queries){"
         "  try {"
-        "    $ev += Get-WinEvent -FilterHashtable @{LogName=$l; StartTime=$start} -MaxEvents 30 | "
-        "      Select-Object TimeCreated,Id,LevelDisplayName,ProviderName,LogName,Message;"
+        "    $ev += Get-WinEvent -FilterHashtable @{LogName=$q.log; StartTime=$start; Id=$q.ids} -MaxEvents $q.max;"
         "  } catch { }"
         "};"
-        "$ev | ForEach-Object {"
+        "$ev | Sort-Object TimeCreated -Descending | Select-Object -First 60 | ForEach-Object {"
+        "  $xml=$null;"
+        "  $data=@{};"
+        "  try { $xml=[xml]$_.ToXml() } catch { $xml=$null }"
+        "  if($null -ne $xml){"
+        "    foreach($d in $xml.Event.EventData.Data){"
+        "      $n=[string]$d.Name;"
+        "      if([string]::IsNullOrEmpty($n)){ continue }"
+        "      $data[$n]=[string]$d.'#text';"
+        "    }"
+        "    if($data.ContainsKey('ScriptBlockText') -and $null -ne $data['ScriptBlockText'] -and $data['ScriptBlockText'].Length -gt 800){"
+        "      $data['ScriptBlockText']=$data['ScriptBlockText'].Substring(0,800) + '...';"
+        "    }"
+        "  }"
         "  $msg=$_.Message;"
         "  if($null -ne $msg -and $msg.Length -gt 260){ $msg=$msg.Substring(0,260) + '...'; }"
         "  [PSCustomObject]@{"
-        "    time=$_.TimeCreated;"
+        "    time=$_.TimeCreated.ToString('yyyy-MM-ddTHH:mm:ss.fffK');"
         "    id=$_.Id;"
         "    level=$_.LevelDisplayName;"
         "    provider=$_.ProviderName;"
         "    log=$_.LogName;"
-        "    message=$msg"
+        "    pid=$_.ProcessId;"
+        "    recordId=$_.RecordId;"
+        "    message=$msg;"
+        "    data=$data"
         "  }"
-        "} | ConvertTo-Json -Compress";
+        "} | ConvertTo-Json -Compress -Depth 4";
 
     const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", psScript}, 12000);
     if (!result.finished || result.exitCode != 0) {
@@ -1160,24 +1271,114 @@ QVariantList SecurityController::scanEventAlerts() const
         return QString("Low");
     };
 
+    QDateTime newest;
+
+    const auto dataValue = [](const QJsonObject &data, const QString &key) -> QString {
+        if (data.contains(key)) {
+            return data.value(key).toString();
+        }
+        for (auto it = data.begin(); it != data.end(); ++it) {
+            if (it.key().compare(key, Qt::CaseInsensitive) == 0) {
+                return it.value().toString();
+            }
+        }
+        return QString();
+    };
+
+    const auto basenameOf = [](const QString &path) -> QString {
+        const int slash = std::max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+        return (slash >= 0) ? path.mid(slash + 1) : path;
+    };
+
+    const auto looksSuspiciousCmd = [](const QString &text) -> bool {
+        const QString s = text.toLower();
+        return s.contains("-enc") || s.contains("-encodedcommand") || s.contains("frombase64string") ||
+               s.contains("invoke-expression") || s.contains(" iex") || s.contains("iex ") ||
+               s.contains("downloadstring") || s.contains("invoke-webrequest") || s.contains("invoke-restmethod") ||
+               s.contains("rundll32") || s.contains("regsvr32") || s.contains("mshta");
+    };
+
     const auto appendOne = [&](const QJsonObject &obj) {
-        const QString level = obj.value("level").toString();
+        const QString timeText = obj.value("time").toString();
+        const QDateTime t = QDateTime::fromString(timeText, Qt::ISODate);
+        if (t.isValid() && (!newest.isValid() || t > newest)) {
+            newest = t;
+        }
+
+        const int id = obj.value("id").toInt();
         const QString provider = obj.value("provider").toString();
         const QString log = obj.value("log").toString();
-        const int id = obj.value("id").toInt();
+        const int pid = obj.value("pid").toInt();
+        const QString msg = obj.value("message").toString();
+        const QString level = obj.value("level").toString();
+        const QJsonObject data = obj.value("data").toObject();
 
-        const QString title = QString("%1 (%2/%3)").arg(
+        QString severity = mapSeverity(level);
+        QString title = QString("%1 (%2/%3)").arg(
             provider.isEmpty() ? "Event" : provider,
             log.isEmpty() ? "Log" : log,
             QString::number(id));
+        QString detail = msg;
 
-        out.append(MapOf({
-            {"time", obj.value("time").toString()},
-            {"severity", mapSeverity(level)},
+        if (log.contains("PowerShell", Qt::CaseInsensitive) && id == 4104) {
+            const QString script = dataValue(data, "ScriptBlockText");
+            const QString snippet = script.trimmed().isEmpty() ? msg : script.left(220);
+            title = "PowerShell ScriptBlock (4104)";
+            detail = snippet;
+            if (looksSuspiciousCmd(script) || looksSuspiciousCmd(msg)) {
+                severity = "High";
+                if (script.toLower().contains("frombase64string") || script.toLower().contains("-encodedcommand")) {
+                    severity = "Critical";
+                }
+            }
+        } else if (log.compare("Security", Qt::CaseInsensitive) == 0 && id == 4688) {
+            const QString newProc = dataValue(data, "NewProcessName");
+            const QString cmd = dataValue(data, "CommandLine");
+            const QString parent = dataValue(data, "ParentProcessName");
+            const QString user = dataValue(data, "SubjectUserName");
+
+            const QString procName = basenameOf(newProc);
+            title = "Process created (4688): " + (procName.isEmpty() ? "Unknown" : procName);
+            detail = QString("%1 | %2%3%4")
+                         .arg(newProc.isEmpty() ? "NewProcessName=N/A" : newProc)
+                         .arg(cmd.isEmpty() ? "CommandLine=N/A" : cmd.left(220))
+                         .arg(parent.isEmpty() ? "" : (" | Parent=" + basenameOf(parent)))
+                         .arg(user.isEmpty() ? "" : (" | User=" + user));
+
+            if (looksSuspiciousCmd(cmd) || looksSuspiciousCmd(newProc)) {
+                severity = "High";
+                if (cmd.toLower().contains("-encodedcommand") || cmd.toLower().contains("-enc")) {
+                    severity = "Critical";
+                }
+            }
+        } else if (log.compare("System", Qt::CaseInsensitive) == 0 && id == 7045) {
+            const QString serviceName = dataValue(data, "ServiceName");
+            const QString imagePath = dataValue(data, "ImagePath");
+            title = "Service installed (7045): " + (serviceName.isEmpty() ? "Unknown" : serviceName);
+            detail = (imagePath.isEmpty() ? msg : imagePath.left(240));
+            const QString p = imagePath.toLower();
+            if (p.contains("\\users\\") || p.contains("\\temp\\") || p.contains("\\appdata\\")) {
+                severity = "High";
+            }
+        } else if (log.contains("Windows Defender", Qt::CaseInsensitive) && id == 1116) {
+            title = "Defender detected malware (1116)";
+            severity = "Critical";
+            detail = msg;
+        }
+
+        QVariantMap alert = MapOf({
+            {"time", timeText},
+            {"severity", severity},
             {"title", title},
-            {"detail", obj.value("message").toString()},
+            {"detail", detail},
             {"origin", "eventlog"}
-        }));
+        });
+
+        if (pid > 0) {
+            alert.insert("pid", QString::number(pid));
+        }
+
+        out.append(alert);
     };
 
     if (doc.isArray()) {
@@ -1195,7 +1396,16 @@ QVariantList SecurityController::scanEventAlerts() const
         appendOne(doc.object());
     }
 
+    if (newestEventTime && newest.isValid()) {
+        *newestEventTime = newest;
+    }
+
     return out;
+}
+
+QVariantList SecurityController::scanEventAlerts() const
+{
+    return scanEventAlertsSince(QDateTime::currentDateTime().addSecs(-6 * 60 * 60), nullptr);
 }
 
 QVariantList SecurityController::deriveAppPermissions(const QVariantList &apps, const QVariantList &ports) const
@@ -1250,9 +1460,25 @@ QVariantList SecurityController::deriveHighRiskPermissions(const QVariantList &a
         }
 
         const QString app = row.value("app").toString();
+        const QString cmdline = row.value("cmdline").toString();
         QString action = "Sensitive runtime detected";
+        QString risk = "High";
         if (app.contains("powershell", Qt::CaseInsensitive) || app.compare("cmd.exe", Qt::CaseInsensitive) == 0) {
             action = "Potential command execution capability";
+        }
+
+        const QString cmdLower = cmdline.toLower();
+        const bool hasEncoded =
+            cmdLower.contains("-enc") || cmdLower.contains("-encodedcommand") || cmdLower.contains("frombase64string");
+        const bool hasIex =
+            cmdLower.contains("invoke-expression") || cmdLower.contains(" iex") || cmdLower.contains("iex ");
+        const bool hasDownload =
+            cmdLower.contains("downloadstring") || cmdLower.contains("invoke-webrequest") || cmdLower.contains("invoke-restmethod");
+
+        if (!cmdline.trimmed().isEmpty() && (hasEncoded || hasIex || hasDownload)) {
+            risk = "Critical";
+            const QString snippet = cmdline.left(160);
+            action = "Suspicious command line: " + snippet;
         }
 
         out.append(MapOf({
@@ -1260,7 +1486,7 @@ QVariantList SecurityController::deriveHighRiskPermissions(const QVariantList &a
             {"process", app},
             {"action", action},
             {"time", nowStamp()},
-            {"risk", "High"}
+            {"risk", risk}
         }));
         if (out.size() >= 12) {
             break;
@@ -1278,6 +1504,9 @@ QVariantList SecurityController::deriveHighRiskPermissions(const QVariantList &a
             {"permission", "Network Exposure"},
             {"process", row.value("process").toString()},
             {"action", "High-risk port " + row.value("port").toString() + " active"},
+            {"port", row.value("port").toString()},
+            {"protocol", row.value("protocol").toString()},
+            {"bindScope", row.value("bindScope").toString()},
             {"time", nowStamp()},
             {"risk", risk}
         }));
@@ -1328,13 +1557,25 @@ QVariantList SecurityController::deriveAlerts(const QVariantList &highRiskPermis
             continue;
         }
 
-        out.append(MapOf({
+        QVariantMap alert = MapOf({
             {"time", nowStamp()},
             {"severity", risk == "Critical" ? "Critical" : "High"},
             {"title", "High-risk behavior detected"},
             {"detail", row.value("process").toString() + " -> " + row.value("action").toString()},
             {"origin", "scan"}
-        }));
+        });
+
+        if (row.value("permission").toString() == "Network Exposure") {
+            const QString port = row.value("port").toString();
+            if (!port.isEmpty()) {
+                alert.insert("canBlock", true);
+                alert.insert("blockSource", row.value("process").toString());
+                alert.insert("blockAction", "Port " + port);
+                alert.insert("recommendation", "Block the listening port or restrict bind scope / inbound firewall.");
+            }
+        }
+
+        out.append(alert);
 
         if (out.size() >= 20) {
             break;

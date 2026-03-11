@@ -36,11 +36,7 @@ ScrollView {
                             color: Theme.textPrimary
                             font.bold: true
                             Layout.preferredWidth: 140
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
                             HoverHandler { id: typeHover }
-                            ToolTip.visible: typeHover.hovered
-                            ToolTip.text: String(modelData.type || "")
                         }
 
                         Label {
@@ -48,22 +44,14 @@ ScrollView {
                             color: Theme.textSecondary
                             Layout.preferredWidth: 220
                             elide: Text.ElideRight
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
                             HoverHandler { id: ownerHover }
-                            ToolTip.visible: ownerHover.hovered
-                            ToolTip.text: String(modelData.owner || "")
                         }
 
                         Label {
                             text: I18n.tr("到期: ", "Expires: ") + modelData.expires
                             color: Theme.textSecondary
                             Layout.fillWidth: true
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
                             HoverHandler { id: expiresHover }
-                            ToolTip.visible: expiresHover.hovered
-                            ToolTip.text: I18n.tr("到期时间仅用于提醒轮换（示例）。", "Expiry is a reminder for rotation (demo).")
                         }
 
                         StatusTag {

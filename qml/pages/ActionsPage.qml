@@ -77,6 +77,40 @@ Item {
 
         SectionCard {
             Layout.fillWidth: true
+            title: I18n.tr("端口阻断回滚", "Rollback Port Blocks")
+            icon: Icons.port
+            tip: I18n.tr("撤销 VisualSafety 创建的防火墙端口阻断规则。", "Remove firewall port-block rules created by VisualSafety.")
+
+            ThemedTextField {
+                id: unblockPortField
+                Layout.fillWidth: true
+                placeholderText: I18n.tr("端口号，如 3389", "Port number, e.g. 3389")
+                inputMethodHints: Qt.ImhDigitsOnly
+                tip: I18n.tr("仅影响 VisualSafety_Block_* 规则。", "Only affects VisualSafety_Block_* rules.")
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ThemedButton {
+                    Layout.fillWidth: true
+                    text: Icons.safe + " " + I18n.tr("解除该端口阻断", "Unblock This Port")
+                    enabled: unblockPortField.text.length > 0
+                    onClicked: Security.unblockPort(parseInt(unblockPortField.text))
+                }
+
+                ThemedButton {
+                    Layout.fillWidth: true
+                    text: Icons.block + " " + I18n.tr("清理所有端口阻断", "Clear All Port Blocks")
+                    tip: I18n.tr("需要管理员权限。", "Administrator privileges required.")
+                    onClicked: Security.clearAllPortBlocks()
+                }
+            }
+        }
+
+        SectionCard {
+            Layout.fillWidth: true
             title: I18n.tr("紧急系统操作", "Emergency System Actions")
             icon: Icons.warning
             tip: I18n.tr("强制关机/重启属于高影响操作，请谨慎。", "Force shutdown/restart is high impact; use carefully.")

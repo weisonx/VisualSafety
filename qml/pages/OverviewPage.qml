@@ -82,10 +82,6 @@ ScrollView {
 
                             readonly property string tipText: Security.knownProcessTip(modelData.process)
                             HoverHandler { id: procHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: procHover.hovered && procLabel.tipText.length > 0
-                            ToolTip.text: procLabel.tipText
                         }
 
                         Label {
@@ -154,10 +150,6 @@ ScrollView {
                                 elide: Text.ElideRight
 
                                 HoverHandler { id: alertHover }
-                                ToolTip.delay: 350
-                                ToolTip.timeout: 8000
-                                ToolTip.visible: alertHover.hovered && String(rowData.detail || "").length > 0
-                                ToolTip.text: String(rowData.detail || "")
                             }
                         }
                     }
@@ -191,10 +183,6 @@ ScrollView {
 
                                 readonly property string tipText: Security.knownProcessTip(rowData.app)
                                 HoverHandler { id: appHover }
-                                ToolTip.delay: 350
-                                ToolTip.timeout: 8000
-                                ToolTip.visible: appHover.hovered && appName.tipText.length > 0
-                                ToolTip.text: appName.tipText
                             }
                             StatusTag {
                                 text: I18n.trustLabel(rowData.trust)

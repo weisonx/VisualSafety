@@ -14,6 +14,7 @@
 #include <QSet>
 #include <QStandardPaths>
 #include <QTextStream>
+#include <QTimer>
 
 namespace {
 struct CommandResult {
@@ -77,6 +78,12 @@ SecurityController::SecurityController(QObject *parent)
     loadPlugins();
     refreshData();
     appendLog("INFO", "VisualSafety initialized.");
+
+    m_lastRealtimeEventTime = QDateTime::currentDateTime().addSecs(-30);
+    auto *timer = new QTimer(this);
+    timer->setInterval(5000);
+    connect(timer, &QTimer::timeout, this, &SecurityController::pollRealtime);
+    timer->start();
 }
 
 QVariantList SecurityController::permissions() const { return m_permissions; }
@@ -130,6 +137,7 @@ bool SecurityController::autoBlockHighRiskPorts() const { return m_autoBlockHigh
 bool SecurityController::autoKillUntrustedShell() const { return m_autoKillUntrustedShell; }
 QString SecurityController::processWhitelist() const { return m_processWhitelist; }
 QString SecurityController::processBlacklist() const { return m_processBlacklist; }
+bool SecurityController::realtimeEnabled() const { return m_realtimeEnabled; }
 QVariantList SecurityController::availablePlugins() const { return m_availablePlugins; }
 QVariantList SecurityController::installedPlugins() const { return m_installedPlugins; }
 
@@ -258,6 +266,15 @@ void SecurityController::setProcessBlacklist(const QString &value)
     emit policyChanged();
 }
 
+void SecurityController::setRealtimeEnabled(bool value)
+{
+    if (m_realtimeEnabled == value) {
+        return;
+    }
+    m_realtimeEnabled = value;
+    emit realtimeChanged();
+}
+
 void SecurityController::refreshData()
 {
     const bool admin = isRunningAsAdmin();
@@ -288,7 +305,11 @@ void SecurityController::refreshData()
         }
     }
 
-    const QVariantList eventAlerts = scanEventAlerts();
+    QDateTime newest = m_lastRealtimeEventTime;
+    const QVariantList eventAlerts = scanEventAlertsSince(QDateTime::currentDateTime().addSecs(-6 * 60 * 60), &newest);
+    if (newest.isValid()) {
+        m_lastRealtimeEventTime = newest;
+    }
     const QVariantList scanAlerts = deriveAlerts(m_highRiskPermissions, m_traffic);
 
     QVariantList mergedAlerts;
@@ -797,6 +818,28 @@ void SecurityController::blockAction(const QString &source, const QString &actio
     refreshData();
 }
 
+bool SecurityController::unblockPort(int port)
+{
+    QString detail;
+    const bool ok = unblockPortInternal(port, &detail);
+    appendLog(ok ? "INFO" : "ERROR", "Unblock port request -> " + QString::number(port) + " / " + detail);
+    m_lastAction = ok ? ("Port unblocked: " + QString::number(port)) : ("Port unblock failed: " + QString::number(port));
+    emit statusChanged();
+    refreshData();
+    return ok;
+}
+
+bool SecurityController::clearAllPortBlocks()
+{
+    QString detail;
+    const bool ok = clearAllPortBlocksInternal(&detail);
+    appendLog(ok ? "INFO" : "ERROR", "Clear all port blocks -> " + detail);
+    m_lastAction = ok ? "Cleared port blocks" : "Clear port blocks failed";
+    emit statusChanged();
+    refreshData();
+    return ok;
+}
+
 void SecurityController::shutdownNow()
 {
     const CommandResult result = RunProcess("shutdown", {"/s", "/t", "5", "/f"});
@@ -972,6 +1015,57 @@ bool SecurityController::blockPort(int port, QString *detail)
     return ok;
 }
 
+bool SecurityController::unblockPortInternal(int port, QString *detail)
+{
+    if (port <= 0 || port > 65535) {
+        if (detail) {
+            *detail = "Invalid port";
+        }
+        return false;
+    }
+
+    const QString ruleName = sanitizeRuleName(QString("VisualSafety_Block_%1").arg(port));
+    const CommandResult inRule = RunProcess(
+        "netsh",
+        {"advfirewall", "firewall", "delete", "rule", "name=" + ruleName + "_IN"}
+    );
+    const CommandResult outRule = RunProcess(
+        "netsh",
+        {"advfirewall", "firewall", "delete", "rule", "name=" + ruleName + "_OUT"}
+    );
+
+    const bool ok = inRule.finished && outRule.finished && inRule.exitCode == 0 && outRule.exitCode == 0;
+    if (detail) {
+        *detail = ok ? QString("Firewall rules removed for port %1").arg(port)
+                     : QString("Firewall unblock failed: %1 | %2").arg(MergedOutput(inRule), MergedOutput(outRule));
+    }
+    return ok;
+}
+
+bool SecurityController::clearAllPortBlocksInternal(QString *detail)
+{
+    if (!isRunningAsAdmin()) {
+        if (detail) {
+            *detail = "Admin required";
+        }
+        appendAlert("High", "Admin required", "Clearing firewall rules requires administrator privileges.");
+        return false;
+    }
+
+    const QString script =
+        "try { "
+        "Get-NetFirewallRule -DisplayName 'VisualSafety_Block_*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue | Out-Null; "
+        "Write-Output 'ok' "
+        "} catch { Write-Output $_.Exception.Message }";
+
+    const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", script}, 15000);
+    const bool ok = result.finished && result.exitCode == 0 && result.out.contains("ok");
+    if (detail) {
+        *detail = ok ? "Removed VisualSafety_Block_* firewall rules" : ("Failed: " + MergedOutput(result));
+    }
+    return ok;
+}
+
 bool SecurityController::terminateProcess(const QString &name, QString *detail)
 {
     const CommandResult kill = RunProcess("taskkill", {"/F", "/IM", name});
@@ -1104,6 +1198,56 @@ void SecurityController::runPolicyEngine()
         } else {
             appendLog("ERROR", "Policy process termination failed for " + app + " -> " + detail);
         }
+    }
+}
+
+void SecurityController::pollRealtime()
+{
+    if (!m_realtimeEnabled) {
+        return;
+    }
+
+    const QDateTime since = m_lastRealtimeEventTime.isValid()
+        ? m_lastRealtimeEventTime.addSecs(-2)
+        : QDateTime::currentDateTime().addSecs(-30);
+
+    QDateTime newest = m_lastRealtimeEventTime;
+    const QVariantList events = scanEventAlertsSince(since, &newest);
+    if (!newest.isValid() || newest <= m_lastRealtimeEventTime) {
+        return;
+    }
+    m_lastRealtimeEventTime = newest;
+
+    if (events.isEmpty()) {
+        return;
+    }
+
+    QSet<QString> seen;
+    for (const auto &item : m_alerts) {
+        const QVariantMap row = item.toMap();
+        const QString key = row.value("title").toString() + "|" + row.value("detail").toString();
+        if (!key.trimmed().isEmpty()) {
+            seen.insert(key);
+        }
+    }
+
+    bool changed = false;
+    for (const auto &item : events) {
+        const QVariantMap row = item.toMap();
+        const QString key = row.value("title").toString() + "|" + row.value("detail").toString();
+        if (key.trimmed().isEmpty() || seen.contains(key)) {
+            continue;
+        }
+        seen.insert(key);
+        m_alerts.prepend(item);
+        changed = true;
+        if (m_alerts.size() > 100) {
+            m_alerts.removeLast();
+        }
+    }
+
+    if (changed) {
+        emit dataChanged();
     }
 }
 

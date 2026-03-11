@@ -1,4 +1,4 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../components"
@@ -227,11 +227,7 @@ ScrollView {
                         : I18n.tr("公网 IP 不在本机网卡上（通常由路由器持有）", "WAN IP not on local NIC (usually held by router)")
                     color: Theme.textSecondary
                     elide: Text.ElideRight
-                    ToolTip.delay: 350
-                    ToolTip.timeout: 8000
                     HoverHandler { id: directExplainHover }
-                    ToolTip.visible: directExplainHover.hovered
-                    ToolTip.text: "This affects whether listening ports are directly reachable from the Internet."
                 }
             }
 
@@ -364,10 +360,6 @@ ScrollView {
 
                             readonly property string tipText: Security.knownPortTip(parseInt(modelData.port), modelData.protocol)
                             HoverHandler { id: portHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: portHover.hovered && portLabel.tipText.length > 0
-                            ToolTip.text: portLabel.tipText
                         }
 
                         Label {
@@ -379,10 +371,6 @@ ScrollView {
 
                             readonly property string tipText: Security.knownProcessTip(modelData.process)
                             HoverHandler { id: procHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: procHover.hovered && procLabel.tipText.length > 0
-                            ToolTip.text: procLabel.tipText
                         }
 
                         StatusTag {

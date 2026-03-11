@@ -41,11 +41,7 @@ ScrollView {
                             color: Theme.textPrimary
                             Layout.preferredWidth: 290
                             elide: Text.ElideRight
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
                             HoverHandler { id: ruleHover }
-                            ToolTip.visible: ruleHover.hovered
-                            ToolTip.text: String(modelData.rule || "")
                         }
 
                         Label {
@@ -53,11 +49,7 @@ ScrollView {
                             color: Theme.textSecondary
                             Layout.fillWidth: true
                             elide: Text.ElideRight
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
                             HoverHandler { id: targetHover }
-                            ToolTip.visible: targetHover.hovered
-                            ToolTip.text: String(modelData.target || "")
                         }
 
                         StatusTag {

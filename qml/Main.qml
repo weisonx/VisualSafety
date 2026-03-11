@@ -142,10 +142,6 @@ ApplicationWindow {
                     hoverEnabled: true
                     highlighted: root.currentIndex === index
                     onClicked: root.currentIndex = index
-                    ToolTip.delay: 350
-                    ToolTip.timeout: 8000
-                    ToolTip.visible: hovered
-                    ToolTip.text: (modelData.tip && modelData.tip.length > 0) ? modelData.tip : modelData.title
 
                     contentItem: RowLayout {
                         anchors.fill: parent

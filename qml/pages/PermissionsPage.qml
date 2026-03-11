@@ -186,10 +186,6 @@ ScrollView {
                             elide: Text.ElideRight
 
                             HoverHandler { id: permHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: permHover.hovered
-                            ToolTip.text: String(modelData.name || "") + "\n" + String(modelData.scope || "")
                         }
 
                         Label {
@@ -200,10 +196,6 @@ ScrollView {
                             elide: Text.ElideRight
 
                             HoverHandler { id: scopeHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: scopeHover.hovered
-                            ToolTip.text: String(modelData.scope || "")
                         }
 
                         StatusTag {
@@ -262,10 +254,6 @@ ScrollView {
 
                             readonly property string tipText: Security.knownProcessTip(modelData.app)
                             HoverHandler { id: appHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: appHover.hovered && appName.tipText.length > 0
-                            ToolTip.text: appName.tipText
                         }
 
                         Label {

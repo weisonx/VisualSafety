@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <QObject>
+#include <QDateTime>
 #include <QSet>
 #include <QString>
 #include <QVariantList>
@@ -39,6 +40,7 @@ class SecurityController final : public QObject
     Q_PROPERTY(bool autoKillUntrustedShell READ autoKillUntrustedShell WRITE setAutoKillUntrustedShell NOTIFY policyChanged)
     Q_PROPERTY(QString processWhitelist READ processWhitelist WRITE setProcessWhitelist NOTIFY policyChanged)
     Q_PROPERTY(QString processBlacklist READ processBlacklist WRITE setProcessBlacklist NOTIFY policyChanged)
+    Q_PROPERTY(bool realtimeEnabled READ realtimeEnabled WRITE setRealtimeEnabled NOTIFY realtimeChanged)
     Q_PROPERTY(QVariantList availablePlugins READ availablePlugins NOTIFY pluginsChanged)
     Q_PROPERTY(QVariantList installedPlugins READ installedPlugins NOTIFY pluginsChanged)
 
@@ -90,6 +92,8 @@ public:
     void setProcessWhitelist(const QString &value);
     QString processBlacklist() const;
     void setProcessBlacklist(const QString &value);
+    bool realtimeEnabled() const;
+    void setRealtimeEnabled(bool value);
 
     QVariantList availablePlugins() const;
     QVariantList installedPlugins() const;
@@ -97,6 +101,8 @@ public:
     Q_INVOKABLE void refreshData();
     Q_INVOKABLE void forceQuitApp(const QString &name);
     Q_INVOKABLE void blockAction(const QString &source, const QString &action);
+    Q_INVOKABLE bool unblockPort(int port);
+    Q_INVOKABLE bool clearAllPortBlocks();
     Q_INVOKABLE void shutdownNow();
     Q_INVOKABLE void restartNow();
     Q_INVOKABLE void addManualLog(const QString &level, const QString &message);
@@ -120,6 +126,7 @@ signals:
     void statusChanged();
     void notifySettingsChanged();
     void policyChanged();
+    void realtimeChanged();
     void pluginsChanged();
 
 private:
@@ -133,11 +140,15 @@ private:
     bool isBlacklisted(const QString &name) const;
     bool isWhitelisted(const QString &name) const;
     bool blockPort(int port, QString *detail);
+    bool unblockPortInternal(int port, QString *detail);
+    bool clearAllPortBlocksInternal(QString *detail);
     bool terminateProcess(const QString &name, QString *detail);
     void sendDesktopNotification(const QString &title, const QString &detail);
     void sendEmailNotification(const QString &title, const QString &detail);
     void sendSmsNotification(const QString &title, const QString &detail);
     void runPolicyEngine();
+    void pollRealtime();
+    QVariantList scanEventAlertsSince(const QDateTime &since, QDateTime *newestEventTime) const;
 
     void appendLog(const QString &level, const QString &message);
     void appendAlert(const QString &severity, const QString &title, const QString &detail);
@@ -193,6 +204,8 @@ private:
     bool m_autoKillUntrustedShell = false;
     QString m_processWhitelist = "explorer.exe,svchost.exe,msmpeng.exe";
     QString m_processBlacklist = "powershell.exe,pwsh.exe,cmd.exe,wscript.exe,cscript.exe,mshta.exe";
+    bool m_realtimeEnabled = true;
+    QDateTime m_lastRealtimeEventTime;
     QSet<int> m_policyBlockedPorts;
     QSet<QString> m_policyTerminatedApps;
 

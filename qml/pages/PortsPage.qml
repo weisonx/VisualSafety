@@ -38,10 +38,6 @@ ScrollView {
 
                             readonly property string tipText: Security.knownPortTip(parseInt(modelData.port), modelData.protocol)
                             HoverHandler { id: portHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: portHover.hovered && portLabel.tipText.length > 0
-                            ToolTip.text: portLabel.tipText
                         }
 
                         Label {
@@ -53,10 +49,6 @@ ScrollView {
 
                             readonly property string tipText: Security.knownProcessTip(modelData.process)
                             HoverHandler { id: procHover }
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
-                            ToolTip.visible: procHover.hovered && procLabel.tipText.length > 0
-                            ToolTip.text: procLabel.tipText
                         }
 
                         StatusTag {

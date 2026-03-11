@@ -8,11 +8,6 @@ Switch {
     spacing: 10
     hoverEnabled: true
 
-    ToolTip.delay: 350
-    ToolTip.timeout: 8000
-    ToolTip.visible: root.hovered && root.tip.length > 0
-    ToolTip.text: root.tip
-
     indicator: Rectangle {
         implicitWidth: 44
         implicitHeight: 24

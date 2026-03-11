@@ -134,11 +134,7 @@ Item {
                             color: Theme.textPrimary
                             Layout.fillWidth: true
                             elide: Text.ElideRight
-                            ToolTip.delay: 350
-                            ToolTip.timeout: 8000
                             HoverHandler { id: msgHover }
-                            ToolTip.visible: msgHover.hovered
-                            ToolTip.text: String(modelData.message || "")
                         }
                     }
                 }

@@ -82,10 +82,6 @@ Item {
 
                                     readonly property string tipText: Security.knownProcessTip(modelData.app)
                                     HoverHandler { id: appHover }
-                                    ToolTip.delay: 350
-                                    ToolTip.timeout: 8000
-                                    ToolTip.visible: appHover.hovered && appLabel.tipText.length > 0
-                                    ToolTip.text: appLabel.tipText
                                 }
 
                                 StatusTag {
@@ -120,10 +116,6 @@ Item {
 
                                     readonly property string tipText: Security.knownProcessTip(modelData.app)
                                     HoverHandler { id: hintHover }
-                                    ToolTip.delay: 350
-                                    ToolTip.timeout: 8000
-                                    ToolTip.visible: hintHover.hovered && hintLabel.tipText.length > 0
-                                    ToolTip.text: hintLabel.tipText
                                 }
 
                                 ThemedButton {

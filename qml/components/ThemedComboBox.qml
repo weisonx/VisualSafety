@@ -11,11 +11,6 @@ ComboBox {
     bottomPadding: 7
     hoverEnabled: true
 
-    ToolTip.delay: 350
-    ToolTip.timeout: 8000
-    ToolTip.visible: root.hovered && root.tip.length > 0
-    ToolTip.text: root.tip
-
     contentItem: Label {
         text: root.displayText
         color: Theme.inputText

@@ -10,11 +10,6 @@ TextField {
     selectedTextColor: Theme.controlText
     hoverEnabled: true
 
-    ToolTip.delay: 350
-    ToolTip.timeout: 8000
-    ToolTip.visible: root.hovered && root.tip.length > 0
-    ToolTip.text: root.tip
-
     background: Rectangle {
         radius: 8
         color: Theme.inputBg
