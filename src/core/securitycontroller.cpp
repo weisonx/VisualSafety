@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QCoreApplication>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
@@ -81,6 +82,7 @@ QVariantList SecurityController::ports() const { return m_ports; }
 QVariantList SecurityController::publicExposure() const { return m_publicExposure; }
 QVariantList SecurityController::ipAddresses() const { return m_ipAddresses; }
 QVariantList SecurityController::firewallRules() const { return m_firewallRules; }
+QVariantMap SecurityController::controls() const { return m_controls; }
 QVariantList SecurityController::traffic() const { return m_traffic; }
 QVariantList SecurityController::alerts() const { return m_alerts; }
 QVariantList SecurityController::logs() const { return m_logs; }
@@ -258,6 +260,7 @@ void SecurityController::refreshData()
     m_appMonitors = annotateAppMonitors(m_appMonitors, m_ports);
     m_credentials = scanCredentials();
     m_firewallRules = scanFirewallRules();
+    m_controls = scanControls(m_firewallRules, admin);
     m_ipAddresses = scanIpAddresses();
     m_publicExposure = scanPublicExposure(m_ports, m_firewallRules, m_ipAddresses);
     m_traffic = scanTraffic();
@@ -316,6 +319,123 @@ void SecurityController::refreshData()
 
     emit dataChanged();
     emit statusChanged();
+}
+
+void SecurityController::hardenFirewall()
+{
+    if (!isRunningAsAdmin()) {
+        appendAlert("High", "Admin required", "Firewall hardening requires administrator privileges.");
+        return;
+    }
+
+    const QString script =
+        "try { "
+        "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True -DefaultInboundAction Block -DefaultOutboundAction Allow | Out-Null; "
+        "Write-Output 'ok' "
+        "} catch { Write-Output $_.Exception.Message }";
+
+    const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", script}, 15000);
+    const QString output = MergedOutput(result);
+    appendLog(result.exitCode == 0 ? "INFO" : "ERROR", "Firewall harden result: " + output);
+    m_lastAction = "Firewall hardening applied";
+    emit statusChanged();
+    refreshData();
+}
+
+void SecurityController::setRemoteDesktopEnabled(bool enabled)
+{
+    if (!isRunningAsAdmin()) {
+        appendAlert("High", "Admin required", "Remote Desktop control requires administrator privileges.");
+        return;
+    }
+
+    const QString denyValue = enabled ? "0" : "1";
+    const QString firewallCmd = enabled
+        ? "Enable-NetFirewallRule -DisplayGroup 'Remote Desktop' | Out-Null;"
+        : "Disable-NetFirewallRule -DisplayGroup 'Remote Desktop' | Out-Null;";
+
+    const QString script =
+        "try { "
+        "Set-ItemProperty -Path 'HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\Terminal Server' -Name 'fDenyTSConnections' -Value " + denyValue + "; "
+        + firewallCmd +
+        "Write-Output 'ok' "
+        "} catch { Write-Output $_.Exception.Message }";
+
+    const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", script}, 15000);
+    appendLog(result.exitCode == 0 ? "INFO" : "ERROR", "Remote Desktop set result: " + MergedOutput(result));
+    m_lastAction = enabled ? "Remote Desktop enabled" : "Remote Desktop disabled";
+    emit statusChanged();
+    refreshData();
+}
+
+void SecurityController::setFileSharingEnabled(bool enabled)
+{
+    if (!isRunningAsAdmin()) {
+        appendAlert("High", "Admin required", "File sharing control requires administrator privileges.");
+        return;
+    }
+
+    const QString firewallCmd = enabled
+        ? "Enable-NetFirewallRule -DisplayGroup 'File and Printer Sharing' | Out-Null;"
+        : "Disable-NetFirewallRule -DisplayGroup 'File and Printer Sharing' | Out-Null;";
+
+    const QString script =
+        "try { " + firewallCmd + " Write-Output 'ok' } catch { Write-Output $_.Exception.Message }";
+
+    const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", script}, 15000);
+    appendLog(result.exitCode == 0 ? "INFO" : "ERROR", "File sharing set result: " + MergedOutput(result));
+    m_lastAction = enabled ? "File sharing allowed" : "File sharing blocked";
+    emit statusChanged();
+    refreshData();
+}
+
+void SecurityController::disableSmb1()
+{
+    if (!isRunningAsAdmin()) {
+        appendAlert("High", "Admin required", "Disabling SMBv1 requires administrator privileges.");
+        return;
+    }
+
+    const QString script =
+        "try { "
+        "Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force | Out-Null; "
+        "Write-Output 'ok' "
+        "} catch { Write-Output $_.Exception.Message }";
+
+    const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", script}, 15000);
+    appendLog(result.exitCode == 0 ? "INFO" : "ERROR", "Disable SMBv1 result: " + MergedOutput(result));
+    m_lastAction = "SMBv1 disable attempted";
+    emit statusChanged();
+    refreshData();
+}
+
+void SecurityController::restartAsAdmin()
+{
+    if (isRunningAsAdmin()) {
+        appendLog("INFO", "Restart as admin ignored: already elevated.");
+        m_lastAction = "Already running as admin";
+        emit statusChanged();
+        return;
+    }
+
+    const QString exePath = QCoreApplication::applicationFilePath();
+    if (exePath.trimmed().isEmpty()) {
+        appendAlert("High", "Restart failed", "Unable to determine application path.");
+        return;
+    }
+
+    const QString script = "Start-Process -FilePath '" + psQuote(exePath) + "' -Verb RunAs";
+    const bool started = QProcess::startDetached("powershell", {"-NoProfile", "-Command", script});
+    if (!started) {
+        appendAlert("High", "Restart failed", "Unable to launch elevated process (UAC).");
+        appendLog("ERROR", "Restart as admin failed: startDetached returned false.");
+        return;
+    }
+
+    appendLog("INFO", "Restarting as admin requested (UAC prompt should appear).");
+    m_lastAction = "Restarting as admin";
+    emit statusChanged();
+    QCoreApplication::quit();
 }
 
 void SecurityController::forceQuitApp(const QString &name)

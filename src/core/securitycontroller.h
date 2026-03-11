@@ -4,6 +4,7 @@
 #include <QSet>
 #include <QString>
 #include <QVariantList>
+#include <QVariantMap>
 
 class SecurityController final : public QObject
 {
@@ -16,6 +17,7 @@ class SecurityController final : public QObject
     Q_PROPERTY(QVariantList publicExposure READ publicExposure NOTIFY dataChanged)
     Q_PROPERTY(QVariantList ipAddresses READ ipAddresses NOTIFY dataChanged)
     Q_PROPERTY(QVariantList firewallRules READ firewallRules NOTIFY dataChanged)
+    Q_PROPERTY(QVariantMap controls READ controls NOTIFY dataChanged)
     Q_PROPERTY(QVariantList traffic READ traffic NOTIFY dataChanged)
     Q_PROPERTY(QVariantList alerts READ alerts NOTIFY dataChanged)
     Q_PROPERTY(QVariantList logs READ logs NOTIFY logsChanged)
@@ -49,6 +51,7 @@ public:
     QVariantList publicExposure() const;
     QVariantList ipAddresses() const;
     QVariantList firewallRules() const;
+    QVariantMap controls() const;
     QVariantList traffic() const;
     QVariantList alerts() const;
     QVariantList logs() const;
@@ -95,6 +98,11 @@ public:
     Q_INVOKABLE void testNotifications();
     Q_INVOKABLE void applyPolicyNow();
     Q_INVOKABLE bool exportLogs(const QString &filePath);
+    Q_INVOKABLE void hardenFirewall();
+    Q_INVOKABLE void setRemoteDesktopEnabled(bool enabled);
+    Q_INVOKABLE void setFileSharingEnabled(bool enabled);
+    Q_INVOKABLE void disableSmb1();
+    Q_INVOKABLE void restartAsAdmin();
 
 signals:
     void dataChanged();
@@ -130,6 +138,7 @@ private:
     QVariantList scanPublicExposure(const QVariantList &ports, const QVariantList &firewallRules, const QVariantList &ipAddresses) const;
     QVariantList scanCredentials() const;
     QVariantList scanFirewallRules() const;
+    QVariantMap scanControls(const QVariantList &firewallRules, bool isAdmin) const;
     QVariantList scanTraffic() const;
     QVariantList scanEventAlerts() const;
     QVariantList deriveAppPermissions(const QVariantList &apps, const QVariantList &ports) const;
@@ -146,6 +155,7 @@ private:
     QVariantList m_publicExposure;
     QVariantList m_ipAddresses;
     QVariantList m_firewallRules;
+    QVariantMap m_controls;
     QVariantList m_traffic;
     QVariantList m_alerts;
     QVariantList m_logs;

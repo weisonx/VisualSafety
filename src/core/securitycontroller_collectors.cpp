@@ -953,6 +953,90 @@ QVariantList SecurityController::scanFirewallRules() const
     return out;
 }
 
+QVariantMap SecurityController::scanControls(const QVariantList &firewallRules, bool isAdmin) const
+{
+    bool firewallAnyDisabled = false;
+    bool firewallInboundAllowDefault = false;
+    for (const auto &entry : firewallRules) {
+        const QVariantMap row = entry.toMap();
+        if (row.value("decision").toString() == "Disabled") {
+            firewallAnyDisabled = true;
+        }
+        const QString target = row.value("target").toString();
+        if (target.contains("Inbound=Allow", Qt::CaseInsensitive)) {
+            firewallInboundAllowDefault = true;
+        }
+    }
+
+    auto readPsBool = [&](const QString &script, bool *known) -> bool {
+        const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", script}, 12000);
+        if (!result.finished || result.exitCode != 0) {
+            *known = false;
+            return false;
+        }
+        const QString out = result.out.trimmed();
+        if (out.compare("True", Qt::CaseInsensitive) == 0) {
+            *known = true;
+            return true;
+        }
+        if (out.compare("False", Qt::CaseInsensitive) == 0) {
+            *known = true;
+            return false;
+        }
+        *known = false;
+        return false;
+    };
+
+    auto readPsInt = [&](const QString &script, bool *known) -> int {
+        const CommandResult result = RunProcess("powershell", {"-NoProfile", "-Command", script}, 12000);
+        if (!result.finished || result.exitCode != 0) {
+            *known = false;
+            return 0;
+        }
+        bool ok = false;
+        const int value = result.out.trimmed().toInt(&ok);
+        *known = ok;
+        return ok ? value : 0;
+    };
+
+    bool rdpKnown = false;
+    const int denyRdp = readPsInt(
+        "(Get-ItemProperty 'HKLM:\\\\SYSTEM\\\\CurrentControlSet\\\\Control\\\\Terminal Server' -Name fDenyTSConnections -ErrorAction SilentlyContinue).fDenyTSConnections",
+        &rdpKnown);
+    const bool remoteDesktopEnabled = rdpKnown ? (denyRdp == 0) : false;
+
+    bool rdpFwKnown = false;
+    const int rdpFwEnabledCount = readPsInt(
+        "@(Get-NetFirewallRule -DisplayGroup 'Remote Desktop' -ErrorAction SilentlyContinue | Where-Object { $_.Enabled -eq 'True' }).Count",
+        &rdpFwKnown);
+    const bool remoteDesktopFirewallEnabled = rdpFwKnown ? (rdpFwEnabledCount > 0) : false;
+
+    bool shareFwKnown = false;
+    const int shareEnabledCount = readPsInt(
+        "@(Get-NetFirewallRule -DisplayGroup 'File and Printer Sharing' -ErrorAction SilentlyContinue | Where-Object { $_.Enabled -eq 'True' }).Count",
+        &shareFwKnown);
+    const bool fileSharingEnabled = shareFwKnown ? (shareEnabledCount > 0) : false;
+
+    bool smb1Known = false;
+    const bool smb1Enabled = readPsBool(
+        "try { (Get-SmbServerConfiguration -ErrorAction Stop).EnableSMB1Protocol } catch { 'Unknown' }",
+        &smb1Known);
+
+    return MapOf({
+        {"isAdmin", isAdmin},
+        {"firewallAnyDisabled", firewallAnyDisabled},
+        {"firewallInboundAllowDefault", firewallInboundAllowDefault},
+        {"remoteDesktopKnown", rdpKnown},
+        {"remoteDesktopEnabled", remoteDesktopEnabled},
+        {"remoteDesktopFirewallKnown", rdpFwKnown},
+        {"remoteDesktopFirewallEnabled", remoteDesktopFirewallEnabled},
+        {"fileSharingFirewallKnown", shareFwKnown},
+        {"fileSharingEnabled", fileSharingEnabled},
+        {"smb1Known", smb1Known},
+        {"smb1Enabled", smb1Enabled}
+    });
+}
+
 QVariantList SecurityController::scanTraffic() const
 {
     QVariantList out;

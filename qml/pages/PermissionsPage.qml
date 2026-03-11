@@ -8,6 +8,7 @@ ScrollView {
     clip: true
     property string permissionsQuery: ""
     property string appPermissionsQuery: ""
+    readonly property var ctl: Security.controls
 
     function matchesPermission(row) {
         const q = permissionsQuery.trim().toLowerCase()
@@ -33,6 +34,110 @@ ScrollView {
     ColumnLayout {
         width: root.availableWidth
         spacing: 12
+
+        SectionCard {
+            Layout.fillWidth: true
+            title: I18n.tr("快速控制（需管理员）", "Quick Controls (Admin)")
+            icon: Icons.power
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                StatusTag {
+                    text: (root.ctl && root.ctl.isAdmin === true) ? I18n.tr("管理员", "Admin") : I18n.tr("非管理员", "Not admin")
+                    tone: (root.ctl && root.ctl.isAdmin === true) ? "success" : "warning"
+                }
+
+                ThemedButton {
+                    text: I18n.tr("以管理员重启", "Restart as Admin")
+                    visible: !(root.ctl && root.ctl.isAdmin === true)
+                    enabled: !(root.ctl && root.ctl.isAdmin === true)
+                    onClicked: Security.restartAsAdmin()
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: I18n.tr("优先级：防火墙入站 → 远程桌面 → 文件共享/SMB", "Priority: Firewall inbound → Remote Desktop → File sharing/SMB")
+                    color: Theme.textSecondary
+                    elide: Text.ElideRight
+                }
+
+                ThemedButton {
+                    text: I18n.tr("强化防火墙", "Harden Firewall")
+                    enabled: root.ctl && root.ctl.isAdmin === true
+                    onClicked: Security.hardenFirewall()
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ThemedSwitch {
+                    id: rdpSwitch
+                    text: Icons.risk + " " + I18n.tr("远程桌面 (RDP)", "Remote Desktop (RDP)")
+                    enabled: root.ctl && root.ctl.isAdmin === true && root.ctl.remoteDesktopKnown === true
+                    checked: root.ctl && root.ctl.remoteDesktopEnabled === true
+                    onToggled: Security.setRemoteDesktopEnabled(checked)
+                }
+
+                StatusTag {
+                    text: root.ctl && root.ctl.remoteDesktopKnown === true
+                        ? (root.ctl.remoteDesktopEnabled === true ? I18n.tr("已开启", "Enabled") : I18n.tr("已关闭", "Disabled"))
+                        : I18n.tr("未知", "Unknown")
+                    tone: root.ctl && root.ctl.remoteDesktopEnabled === true ? "warning" : "success"
+                }
+
+                StatusTag {
+                    text: root.ctl && root.ctl.remoteDesktopFirewallKnown === true
+                        ? (root.ctl.remoteDesktopFirewallEnabled === true ? I18n.tr("防火墙放行", "FW Allowed") : I18n.tr("防火墙未放行", "FW Blocked"))
+                        : I18n.tr("防火墙未知", "FW Unknown")
+                    tone: root.ctl && root.ctl.remoteDesktopFirewallEnabled === true ? "warning" : "normal"
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+
+                ThemedSwitch {
+                    id: shareSwitch
+                    text: Icons.port + " " + I18n.tr("文件共享/SMB", "File Sharing / SMB")
+                    enabled: root.ctl && root.ctl.isAdmin === true && root.ctl.fileSharingFirewallKnown === true
+                    checked: root.ctl && root.ctl.fileSharingEnabled === true
+                    onToggled: Security.setFileSharingEnabled(checked)
+                }
+
+                StatusTag {
+                    text: root.ctl && root.ctl.fileSharingFirewallKnown === true
+                        ? (root.ctl.fileSharingEnabled === true ? I18n.tr("已放行", "Allowed") : I18n.tr("已阻止", "Blocked"))
+                        : I18n.tr("未知", "Unknown")
+                    tone: root.ctl && root.ctl.fileSharingEnabled === true ? "warning" : "success"
+                }
+
+                ThemedButton {
+                    text: I18n.tr("禁用 SMBv1", "Disable SMBv1")
+                    enabled: root.ctl && root.ctl.isAdmin === true
+                    onClicked: Security.disableSmb1()
+                }
+
+                StatusTag {
+                    text: root.ctl && root.ctl.smb1Known === true
+                        ? (root.ctl.smb1Enabled === true ? I18n.tr("SMBv1 开启", "SMBv1 On") : I18n.tr("SMBv1 已禁用", "SMBv1 Off"))
+                        : I18n.tr("SMBv1 未知", "SMBv1 Unknown")
+                    tone: root.ctl && root.ctl.smb1Enabled === true ? "warning" : "success"
+                }
+            }
+
+            Connections {
+                target: Security
+                function onDataChanged() {
+                    rdpSwitch.checked = root.ctl && root.ctl.remoteDesktopEnabled === true
+                    shareSwitch.checked = root.ctl && root.ctl.fileSharingEnabled === true
+                }
+            }
+        }
 
         SectionCard {
             Layout.fillWidth: true
@@ -67,6 +172,8 @@ ScrollView {
                             color: Theme.textPrimary
                             font.bold: true
                             Layout.preferredWidth: 160
+                            Layout.maximumWidth: 220
+                            elide: Text.ElideRight
                         }
 
                         Label {
@@ -130,6 +237,8 @@ ScrollView {
                             text: modelData.permission
                             color: Theme.textSecondary
                             Layout.preferredWidth: 160
+                            Layout.maximumWidth: 220
+                            elide: Text.ElideRight
                         }
 
                         StatusTag {
