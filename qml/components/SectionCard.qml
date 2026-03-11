@@ -22,6 +22,10 @@ Pane {
             id: headerRow
             Layout.fillWidth: true
             HoverHandler { id: headerHover }
+            ToolTip.delay: 350
+            ToolTip.timeout: 8000
+            ToolTip.visible: headerHover.hovered && ((root.tip.length > 0) || (root.title.length > 0))
+            ToolTip.text: root.tip.length > 0 ? root.tip : root.title
 
             Label {
                 text: root.icon

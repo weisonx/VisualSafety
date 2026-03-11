@@ -11,6 +11,24 @@ AI开发中......
 - 克隆本项目到本地
 - 使用QtCreator打开本项目构建运行
 
+## Release 打包（Windows）
+
+本仓库提供 `scripts/package_release.ps1` 用于构建 Release 并调用 `windeployqt` 打包依赖，输出 zip。
+
+1. 安装 Visual Studio（或 Build Tools）C++ 工具链（确保有 `cl.exe`）。
+2. 安装 Qt6（确保有 `windeployqt.exe`）。
+3. PowerShell 运行：
+
+```powershell
+.\scripts\package_release.ps1 -QtPrefixPath "D:\Qt\Qt6.10\6.10.1\mingw_64"
+```
+
+如果你已经用 Qt Creator 构建出了 Release 的 `appVisualSafety.exe`，可以跳过编译，仅执行打包：
+
+```powershell
+.\scripts\package_release.ps1 -QtPrefixPath "D:\Qt\Qt6.10\6.10.1\mingw_64" -ExePath "E:\Github\VisualSafety\build\Desktop_Qt_6_10_1_MinGW_64_bit-Release\appVisualSafety.exe"
+```
+
 ## 1. 项目目标
 
 - 实时监控当前电脑的关键安全面：权限、凭证、端口、网络、应用行为。
