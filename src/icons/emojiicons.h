@@ -16,6 +16,7 @@ class EmojiIcons final : public QObject
     Q_PROPERTY(QString log READ log CONSTANT)
     Q_PROPERTY(QString app READ app CONSTANT)
     Q_PROPERTY(QString power READ power CONSTANT)
+    Q_PROPERTY(QString plugin READ plugin CONSTANT)
     Q_PROPERTY(QString restart READ restart CONSTANT)
     Q_PROPERTY(QString block READ block CONSTANT)
     Q_PROPERTY(QString kill READ kill CONSTANT)
@@ -30,6 +31,7 @@ class EmojiIcons final : public QObject
     Q_PROPERTY(QString refresh READ refresh CONSTANT)
     Q_PROPERTY(QString search READ search CONSTANT)
     Q_PROPERTY(QString warning READ warning CONSTANT)
+    Q_PROPERTY(QString info READ info CONSTANT)
 
 public:
     explicit EmojiIcons(QObject *parent = nullptr);
@@ -44,6 +46,7 @@ public:
     QString log() const;
     QString app() const;
     QString power() const;
+    QString plugin() const;
     QString restart() const;
     QString block() const;
     QString kill() const;
@@ -58,5 +61,5 @@ public:
     QString refresh() const;
     QString search() const;
     QString warning() const;
+    QString info() const;
 };
-

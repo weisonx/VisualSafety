@@ -50,12 +50,14 @@ Item {
             Layout.fillWidth: true
             title: I18n.tr("高危动作拦截", "High-Risk Action Blocking")
             icon: Icons.block
+            tip: I18n.tr("用于手动记录并阻断高危动作（示例）。", "Manually record and block high-risk actions (demo).")
 
             ThemedTextField {
                 id: sourceField
                 Layout.fillWidth: true
                 placeholderText: I18n.tr("来源进程，如 AgentRunner.exe", "Source process, e.g. AgentRunner.exe")
                 text: ""
+                tip: I18n.tr("填写触发动作的进程名/组件名。", "Process/component that triggered the action.")
             }
 
             ThemedTextField {
@@ -63,6 +65,7 @@ Item {
                 Layout.fillWidth: true
                 placeholderText: I18n.tr("动作描述，如 Invoke-Expression", "Action description, e.g. Invoke-Expression")
                 text: ""
+                tip: I18n.tr("建议包含关键 API/命令、参数或目的。", "Include key API/command, params, and intent.")
             }
 
             ThemedButton {
@@ -76,6 +79,7 @@ Item {
             Layout.fillWidth: true
             title: I18n.tr("紧急系统操作", "Emergency System Actions")
             icon: Icons.warning
+            tip: I18n.tr("强制关机/重启属于高影响操作，请谨慎。", "Force shutdown/restart is high impact; use carefully.")
 
             Label {
                 text: I18n.tr("在同一界面执行强制关机或重启，执行前请确认现场环境。",

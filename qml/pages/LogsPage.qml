@@ -44,11 +44,13 @@ Item {
                 id: logInput
                 Layout.fillWidth: true
                 placeholderText: I18n.tr("输入手动日志内容", "Enter manual log message")
+                tip: I18n.tr("用于补充人工处置记录（示例）。", "Add an operator note to audit trail (demo).")
             }
             ThemedComboBox {
                 id: levelBox
                 model: ["INFO", "WARN", "ALERT", "CRITICAL"]
                 currentIndex: 0
+                tip: I18n.tr("选择手动日志级别。", "Choose manual log level.")
             }
             ThemedButton {
                 text: I18n.tr("写入日志", "Write Log")
@@ -67,12 +69,14 @@ Item {
                 model: ["ALL", "INFO", "WARN", "ALERT", "CRITICAL", "ERROR"]
                 currentIndex: 0
                 onCurrentTextChanged: root.rebuildLogs()
+                tip: I18n.tr("按级别筛选日志。", "Filter logs by level.")
             }
             ThemedTextField {
                 id: keywordInput
                 Layout.fillWidth: true
                 placeholderText: I18n.tr("按关键字筛选日志", "Filter by keyword")
                 onTextChanged: root.rebuildLogs()
+                tip: I18n.tr("支持按 message 关键字筛选。", "Filters by message keyword.")
             }
             ThemedButton {
                 text: I18n.tr("导出日志", "Export Logs")
@@ -88,6 +92,7 @@ Item {
             Layout.fillHeight: true
             title: I18n.tr("日志记录", "Logs")
             icon: Icons.log
+            tip: I18n.tr("用于审计：包含扫描、阻断、插件运行等记录。", "Audit trail: scans, blocks, plugin runs, etc.")
 
             ListView {
                 Layout.fillWidth: true
@@ -120,13 +125,20 @@ Item {
                             text: I18n.logLevelLabel(modelData.level)
                             tone: modelData.level === "CRITICAL" || modelData.level === "ALERT" || modelData.level === "ERROR" ? "danger"
                                 : modelData.level === "WARN" ? "warning" : "normal"
+                            tip: I18n.tr("日志级别用于快速定位风险事件。", "Log level helps triage risk events.")
                         }
 
                         Label {
+                            id: msgLabel
                             text: modelData.message
                             color: Theme.textPrimary
                             Layout.fillWidth: true
                             elide: Text.ElideRight
+                            ToolTip.delay: 350
+                            ToolTip.timeout: 8000
+                            HoverHandler { id: msgHover }
+                            ToolTip.visible: msgHover.hovered
+                            ToolTip.text: String(modelData.message || "")
                         }
                     }
                 }

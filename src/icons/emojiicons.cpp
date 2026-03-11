@@ -15,6 +15,7 @@ QString EmojiIcons::alert() const { return QString::fromUtf8("\xF0\x9F\x9A\xA8")
 QString EmojiIcons::log() const { return QString::fromUtf8("\xF0\x9F\x93\x9D"); }
 QString EmojiIcons::app() const { return QString::fromUtf8("\xF0\x9F\xA7\xA9"); }
 QString EmojiIcons::power() const { return QString::fromUtf8("\xE2\x8F\xBB"); }
+QString EmojiIcons::plugin() const { return QString::fromUtf8("\xF0\x9F\xA7\xB0"); }
 QString EmojiIcons::restart() const { return QString::fromUtf8("\xF0\x9F\x94\x84"); }
 QString EmojiIcons::block() const { return QString::fromUtf8("\xE2\x9B\x94"); }
 QString EmojiIcons::kill() const { return QString::fromUtf8("\xE2\x9C\x82\xEF\xB8\x8F"); }
@@ -29,4 +30,4 @@ QString EmojiIcons::risk() const { return QString::fromUtf8("\xE2\x98\xA0\xEF\xB
 QString EmojiIcons::refresh() const { return QString::fromUtf8("\xF0\x9F\x94\x83"); }
 QString EmojiIcons::search() const { return QString::fromUtf8("\xF0\x9F\x94\x8E"); }
 QString EmojiIcons::warning() const { return QString::fromUtf8("\xE2\x9A\xA0\xEF\xB8\x8F"); }
-
+QString EmojiIcons::info() const { return QString::fromUtf8("\xE2\x84\xB9\xEF\xB8\x8F"); }

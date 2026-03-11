@@ -39,6 +39,8 @@ class SecurityController final : public QObject
     Q_PROPERTY(bool autoKillUntrustedShell READ autoKillUntrustedShell WRITE setAutoKillUntrustedShell NOTIFY policyChanged)
     Q_PROPERTY(QString processWhitelist READ processWhitelist WRITE setProcessWhitelist NOTIFY policyChanged)
     Q_PROPERTY(QString processBlacklist READ processBlacklist WRITE setProcessBlacklist NOTIFY policyChanged)
+    Q_PROPERTY(QVariantList availablePlugins READ availablePlugins NOTIFY pluginsChanged)
+    Q_PROPERTY(QVariantList installedPlugins READ installedPlugins NOTIFY pluginsChanged)
 
 public:
     explicit SecurityController(QObject *parent = nullptr);
@@ -89,6 +91,9 @@ public:
     QString processBlacklist() const;
     void setProcessBlacklist(const QString &value);
 
+    QVariantList availablePlugins() const;
+    QVariantList installedPlugins() const;
+
     Q_INVOKABLE void refreshData();
     Q_INVOKABLE void forceQuitApp(const QString &name);
     Q_INVOKABLE void blockAction(const QString &source, const QString &action);
@@ -103,6 +108,11 @@ public:
     Q_INVOKABLE void setFileSharingEnabled(bool enabled);
     Q_INVOKABLE void disableSmb1();
     Q_INVOKABLE void restartAsAdmin();
+    Q_INVOKABLE bool installPlugin(const QString &id);
+    Q_INVOKABLE bool uninstallPlugin(const QString &id);
+    Q_INVOKABLE QVariantMap runPlugin(const QString &id, const QVariantMap &params);
+    Q_INVOKABLE QString knownPortTip(int port, const QString &protocol) const;
+    Q_INVOKABLE QString knownProcessTip(const QString &processName) const;
 
 signals:
     void dataChanged();
@@ -110,6 +120,7 @@ signals:
     void statusChanged();
     void notifySettingsChanged();
     void policyChanged();
+    void pluginsChanged();
 
 private:
     bool isRunningAsAdmin() const;
@@ -130,6 +141,12 @@ private:
 
     void appendLog(const QString &level, const QString &message);
     void appendAlert(const QString &severity, const QString &title, const QString &detail);
+
+    QString pluginConfigPath() const;
+    void loadPlugins();
+    void savePlugins() const;
+    QVariantMap findPluginById(const QString &id) const;
+    void rebuildInstalledPlugins();
 
     QVariantList scanAppMonitors() const;
     QVariantList scanPrivileges(bool isAdmin) const;
@@ -178,4 +195,8 @@ private:
     QString m_processBlacklist = "powershell.exe,pwsh.exe,cmd.exe,wscript.exe,cscript.exe,mshta.exe";
     QSet<int> m_policyBlockedPorts;
     QSet<QString> m_policyTerminatedApps;
+
+    QVariantList m_availablePlugins;
+    QVariantList m_installedPlugins;
+    QSet<QString> m_installedPluginIds;
 };

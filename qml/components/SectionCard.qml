@@ -6,6 +6,7 @@ Pane {
     id: root
     property string title: ""
     property string icon: ""
+    property string tip: ""
     default property alias sectionContent: contentColumn.data
 
     background: Rectangle {
@@ -18,7 +19,14 @@ Pane {
     contentItem: ColumnLayout {
         spacing: 10
         RowLayout {
+            id: headerRow
             Layout.fillWidth: true
+            HoverHandler { id: headerHover }
+            ToolTip.delay: 350
+            ToolTip.timeout: 8000
+            ToolTip.visible: headerHover.hovered && ((root.tip.length > 0) || (root.title.length > 0))
+            ToolTip.text: root.tip.length > 0 ? root.tip : root.title
+
             Label {
                 text: root.icon
                 font.pixelSize: 18
@@ -29,6 +37,12 @@ Pane {
                 font.pixelSize: 16
                 font.bold: true
                 Layout.fillWidth: true
+            }
+            Label {
+                visible: root.tip.length > 0
+                text: Icons.info
+                color: Theme.textSecondary
+                font.pixelSize: 14
             }
         }
         Rectangle {

@@ -3,8 +3,15 @@ import QtQuick.Controls
 
 Switch {
     id: root
+    property string tip: ""
     implicitHeight: 34
     spacing: 10
+    hoverEnabled: true
+
+    ToolTip.delay: 350
+    ToolTip.timeout: 8000
+    ToolTip.visible: root.hovered && root.tip.length > 0
+    ToolTip.text: root.tip
 
     indicator: Rectangle {
         implicitWidth: 44

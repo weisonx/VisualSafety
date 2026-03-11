@@ -38,6 +38,8 @@ qt_add_qml_module(appVisualSafety
         qml/pages/LogsPage.qml
         qml/pages/NetworkPage.qml
         qml/pages/PublicPage.qml
+        qml/pages/PluginRuntimePage.qml
+        qml/pages/PluginsPage.qml
         qml/pages/OverviewPage.qml
         qml/pages/PermissionsPage.qml
         qml/pages/PortsPage.qml

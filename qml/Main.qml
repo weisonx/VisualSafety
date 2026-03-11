@@ -37,8 +37,28 @@ ApplicationWindow {
         { title: I18n.tr("告警", "Alerts"), icon: Icons.alert },
         { title: I18n.tr("日志", "Logs"), icon: Icons.log },
         { title: I18n.tr("应用", "Apps"), icon: Icons.app },
-        { title: I18n.tr("处置", "Actions"), icon: Icons.power }
+        { title: I18n.tr("处置", "Actions"), icon: Icons.power, tip: I18n.tr("高危动作阻断与紧急系统操作。", "Blocking and emergency actions.") },
+        { title: I18n.tr("插件", "Plugins"), icon: Icons.plugin, tip: I18n.tr("插件市场与已安装插件列表。", "Marketplace and installed plugins.") }
     ]
+
+    readonly property var navPages: pages.concat(Security.installedPlugins.map(function(p) {
+        return {
+            title: p.title || p.id,
+            icon: p.icon || Icons.plugin,
+            pluginId: p.id,
+            isPlugin: true,
+            tip: p.description || ""
+        }
+    }))
+
+    Connections {
+        target: Security
+        function onPluginsChanged() {
+            if (root.currentIndex >= root.navPages.length) {
+                root.currentIndex = Math.max(0, root.navPages.length - 1)
+            }
+        }
+    }
 
     header: Rectangle {
         height: 64
@@ -115,12 +135,17 @@ ApplicationWindow {
             ListView {
                 anchors.fill: parent
                 anchors.margins: 10
-                model: root.pages
+                model: root.navPages
                 spacing: 6
                 delegate: ItemDelegate {
                     width: ListView.view.width
+                    hoverEnabled: true
                     highlighted: root.currentIndex === index
                     onClicked: root.currentIndex = index
+                    ToolTip.delay: 350
+                    ToolTip.timeout: 8000
+                    ToolTip.visible: hovered
+                    ToolTip.text: (modelData.tip && modelData.tip.length > 0) ? modelData.tip : modelData.title
 
                     contentItem: RowLayout {
                         anchors.fill: parent
@@ -176,6 +201,12 @@ ApplicationWindow {
                 LogsPage {}
                 AppsPage {}
                 ActionsPage {}
+                PluginsPage {}
+
+                Repeater {
+                    model: Security.installedPlugins
+                    delegate: PluginRuntimePage { plugin: modelData }
+                }
             }
         }
     }

@@ -27,12 +27,14 @@ Item {
             Layout.fillHeight: true
             title: I18n.tr("应用监控列表", "App Monitor List")
             icon: Icons.app
+            tip: I18n.tr("悬浮应用名查看常见系统进程说明（示例）。", "Hover app name for common system process notes (demo).")
 
             ThemedTextField {
                 Layout.fillWidth: true
                 placeholderText: Icons.search + " " + I18n.tr("搜索应用 / PID / 标签", "Search app / PID / tags")
                 text: root.query
                 onTextEdited: root.query = text
+                tip: I18n.tr("支持按应用名、PID、标签、可信度筛选。", "Filter by app name, PID, tags, or trust.")
             }
 
             RowLayout {
@@ -71,11 +73,19 @@ Item {
                                 Layout.fillWidth: true
 
                                 Label {
+                                    id: appLabel
                                     text: modelData.app + "  (PID " + modelData.pid + ")"
                                     color: Theme.textPrimary
                                     font.bold: true
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
+
+                                    readonly property string tipText: Security.knownProcessTip(modelData.app)
+                                    HoverHandler { id: appHover }
+                                    ToolTip.delay: 350
+                                    ToolTip.timeout: 8000
+                                    ToolTip.visible: appHover.hovered && appLabel.tipText.length > 0
+                                    ToolTip.text: appLabel.tipText
                                 }
 
                                 StatusTag {
@@ -102,10 +112,18 @@ Item {
                                 Layout.fillWidth: true
 
                                 Label {
+                                    id: hintLabel
                                     text: modelData.hint
                                     color: Theme.textSecondary
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
+
+                                    readonly property string tipText: Security.knownProcessTip(modelData.app)
+                                    HoverHandler { id: hintHover }
+                                    ToolTip.delay: 350
+                                    ToolTip.timeout: 8000
+                                    ToolTip.visible: hintHover.hovered && hintLabel.tipText.length > 0
+                                    ToolTip.text: hintLabel.tipText
                                 }
 
                                 ThemedButton {

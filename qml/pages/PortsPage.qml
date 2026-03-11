@@ -15,6 +15,7 @@ ScrollView {
             Layout.fillWidth: true
             title: I18n.tr("端口与高危端口使用情况", "Ports & High-Risk Ports")
             icon: Icons.port
+            tip: I18n.tr("悬浮端口/进程查看常见端口与进程说明（示例）。", "Hover port/process for common explanations (demo).")
 
             Repeater {
                 model: Security.ports
@@ -29,17 +30,33 @@ ScrollView {
                         anchors.margins: 10
 
                         Label {
+                            id: portLabel
                             text: modelData.protocol + ":" + modelData.port
                             color: Theme.textPrimary
                             font.bold: true
                             Layout.preferredWidth: 120
+
+                            readonly property string tipText: Security.knownPortTip(parseInt(modelData.port), modelData.protocol)
+                            HoverHandler { id: portHover }
+                            ToolTip.delay: 350
+                            ToolTip.timeout: 8000
+                            ToolTip.visible: portHover.hovered && portLabel.tipText.length > 0
+                            ToolTip.text: portLabel.tipText
                         }
 
                         Label {
+                            id: procLabel
                             text: modelData.process
                             color: Theme.textSecondary
                             Layout.fillWidth: true
                             elide: Text.ElideRight
+
+                            readonly property string tipText: Security.knownProcessTip(modelData.process)
+                            HoverHandler { id: procHover }
+                            ToolTip.delay: 350
+                            ToolTip.timeout: 8000
+                            ToolTip.visible: procHover.hovered && procLabel.tipText.length > 0
+                            ToolTip.text: procLabel.tipText
                         }
 
                         StatusTag {
@@ -51,6 +68,9 @@ ScrollView {
                             tone: (modelData.bindScope === "Any" || modelData.bindScope === "Public") ? "warning"
                                 : modelData.bindScope === "Private" ? "normal"
                                 : modelData.bindScope === "Loopback" ? "success" : "normal"
+                            tip: I18n.tr(
+                                     "监听绑定范围：对外监听/绑定公网表示可能从外部网络访问；仅本机表示只在本机可访问。",
+                                     "Bind scope: All IF/Public suggests reachable from outside; Loopback means local-only.")
                         }
 
                         StatusTag {
@@ -58,6 +78,9 @@ ScrollView {
                             tone: modelData.risk === "Critical" ? "danger"
                                 : modelData.risk === "High" ? "warning"
                                 : modelData.risk === "Low" ? "success" : "normal"
+                            tip: I18n.tr(
+                                     "风险分级由端口类型、监听范围、进程特征等综合推导（示例）。",
+                                     "Risk is derived from port type, bind scope, process hints, etc. (demo).")
                         }
 
                         ThemedButton {

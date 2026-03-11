@@ -5,6 +5,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QCoreApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
@@ -70,6 +74,7 @@ SecurityController::SecurityController(QObject *parent)
         m_logFilePath = logDir + "/security.log";
     }
 
+    loadPlugins();
     refreshData();
     appendLog("INFO", "VisualSafety initialized.");
 }
@@ -125,6 +130,8 @@ bool SecurityController::autoBlockHighRiskPorts() const { return m_autoBlockHigh
 bool SecurityController::autoKillUntrustedShell() const { return m_autoKillUntrustedShell; }
 QString SecurityController::processWhitelist() const { return m_processWhitelist; }
 QString SecurityController::processBlacklist() const { return m_processBlacklist; }
+QVariantList SecurityController::availablePlugins() const { return m_availablePlugins; }
+QVariantList SecurityController::installedPlugins() const { return m_installedPlugins; }
 
 void SecurityController::setDesktopNotify(bool value)
 {
@@ -319,6 +326,311 @@ void SecurityController::refreshData()
 
     emit dataChanged();
     emit statusChanged();
+}
+
+QString SecurityController::pluginConfigPath() const
+{
+    const QString dirPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (dirPath.isEmpty()) {
+        return QString();
+    }
+    return dirPath + "/plugins.json";
+}
+
+void SecurityController::loadPlugins()
+{
+    // Built-in catalog (published with this project).
+    m_availablePlugins.clear();
+    m_availablePlugins.append(MapOf({
+        {"id", "port_exposure_report"},
+        {"title", "Port Exposure Report"},
+        {"description", "Summarize potentially exposed listening ports and give quick hardening hints."},
+        {"version", "0.1.0"},
+        {"author", "VisualSafety"},
+        {"icon", QString::fromUtf8("\xF0\x9F\x94\x8C")}, // 🔌
+        {"inputs", "Security.ports / Security.firewallRules / Security.ipAddresses"},
+        {"params", "none"},
+        {"outputs", "summary text + counts"}
+    }));
+    m_availablePlugins.append(MapOf({
+        {"id", "rdp_hardening_check"},
+        {"title", "RDP Hardening Check"},
+        {"description", "Inspect local RDP related state and recommend hardening actions (policy-only demo)."},
+        {"version", "0.1.0"},
+        {"author", "VisualSafety"},
+        {"icon", QString::fromUtf8("\xF0\x9F\x96\xA5\xEF\xB8\x8F")}, // 🖥️
+        {"inputs", "Security.controls / Security.firewallRules"},
+        {"params", "none"},
+        {"outputs", "recommendations list"}
+    }));
+    m_availablePlugins.append(MapOf({
+        {"id", "credential_hygiene"},
+        {"title", "Credential Hygiene"},
+        {"description", "Review credential entries and highlight missing rotation/masking (demo)."},
+        {"version", "0.1.0"},
+        {"author", "VisualSafety"},
+        {"icon", QString::fromUtf8("\xF0\x9F\x97\x9D\xEF\xB8\x8F")}, // 🗝️
+        {"inputs", "Security.credentials"},
+        {"params", "minRisk=Medium"},
+        {"outputs", "flagged items list"}
+    }));
+
+    // Load installed state.
+    m_installedPluginIds.clear();
+    const QString path = pluginConfigPath();
+    if (!path.isEmpty()) {
+        QFile file(path);
+        if (file.open(QIODevice::ReadOnly)) {
+            const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+            const QJsonObject root = doc.isObject() ? doc.object() : QJsonObject{};
+            const QJsonArray installed = root.value("installed").toArray();
+            for (const auto &entry : installed) {
+                const QString id = entry.toString().trimmed();
+                if (!id.isEmpty()) {
+                    m_installedPluginIds.insert(id);
+                }
+            }
+        }
+    }
+
+    rebuildInstalledPlugins();
+    emit pluginsChanged();
+}
+
+void SecurityController::savePlugins() const
+{
+    const QString path = pluginConfigPath();
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QJsonArray installed;
+    for (const auto &id : m_installedPluginIds) {
+        installed.append(id);
+    }
+
+    QJsonObject root;
+    root.insert("installed", installed);
+
+    const QFileInfo info(path);
+    QDir().mkpath(info.dir().absolutePath());
+
+    const QString tmpPath = path + ".tmp";
+    QFile file(tmpPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return;
+    }
+
+    const QJsonDocument doc(root);
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+
+    QFile::remove(path);
+    QFile::rename(tmpPath, path);
+}
+
+QVariantMap SecurityController::findPluginById(const QString &id) const
+{
+    const QString key = id.trimmed();
+    for (const auto &entry : m_availablePlugins) {
+        const QVariantMap row = entry.toMap();
+        if (row.value("id").toString() == key) {
+            return row;
+        }
+    }
+    return QVariantMap{};
+}
+
+void SecurityController::rebuildInstalledPlugins()
+{
+    m_installedPlugins.clear();
+    for (const auto &id : m_installedPluginIds) {
+        QVariantMap meta = findPluginById(id);
+        if (meta.isEmpty()) {
+            meta = MapOf({
+                {"id", id},
+                {"title", id},
+                {"description", "Unknown plugin (metadata missing)."},
+                {"version", "0.0.0"},
+                {"author", "Unknown"},
+                {"icon", QString::fromUtf8("\xF0\x9F\xA7\xB0")} // 🧰
+            });
+        }
+        m_installedPlugins.append(meta);
+    }
+}
+
+bool SecurityController::installPlugin(const QString &id)
+{
+    const QString key = id.trimmed();
+    if (key.isEmpty()) {
+        return false;
+    }
+    if (m_installedPluginIds.contains(key)) {
+        return true;
+    }
+    if (findPluginById(key).isEmpty()) {
+        appendLog("WARN", "Plugin install rejected (unknown id): " + key);
+        return false;
+    }
+
+    m_installedPluginIds.insert(key);
+    rebuildInstalledPlugins();
+    savePlugins();
+    emit pluginsChanged();
+    appendLog("INFO", "Plugin installed: " + key);
+    return true;
+}
+
+bool SecurityController::uninstallPlugin(const QString &id)
+{
+    const QString key = id.trimmed();
+    if (key.isEmpty()) {
+        return false;
+    }
+    if (!m_installedPluginIds.contains(key)) {
+        return true;
+    }
+
+    m_installedPluginIds.remove(key);
+    rebuildInstalledPlugins();
+    savePlugins();
+    emit pluginsChanged();
+    appendLog("INFO", "Plugin uninstalled: " + key);
+    return true;
+}
+
+QVariantMap SecurityController::runPlugin(const QString &id, const QVariantMap &params)
+{
+    const QString key = id.trimmed();
+    const QVariantMap meta = findPluginById(key);
+    if (key.isEmpty() || meta.isEmpty()) {
+        return MapOf({{"ok", false}, {"message", "Unknown plugin id"}});
+    }
+
+    Q_UNUSED(params);
+
+    if (key == "port_exposure_report") {
+        int highRisk = 0;
+        int exposed = 0;
+        for (const auto &entry : m_ports) {
+            const QVariantMap row = entry.toMap();
+            const QString risk = row.value("risk").toString();
+            if (risk == "Critical" || risk == "High") {
+                ++highRisk;
+            }
+            const QString scope = row.value("bindScope").toString();
+            if (scope == "Any" || scope == "Public") {
+                ++exposed;
+            }
+        }
+        const QString msg = QString("ports=%1 exposedCandidates=%2 highRisk=%3")
+                                .arg(m_ports.size())
+                                .arg(exposed)
+                                .arg(highRisk);
+        appendLog("INFO", "Plugin run: " + key + " -> " + msg);
+        return MapOf({{"ok", true}, {"message", msg}, {"ports", m_ports.size()}, {"exposed", exposed}, {"highRisk", highRisk}});
+    }
+
+    if (key == "rdp_hardening_check") {
+        const QVariantMap controls = m_controls;
+        const bool rdpEnabled = controls.value("remoteDesktop").toString() == "Enabled";
+        QVariantList recs;
+        if (rdpEnabled) {
+            recs.append("Consider restricting RDP to trusted IPs and enabling NLA.");
+        } else {
+            recs.append("RDP appears disabled.");
+        }
+        appendLog("INFO", "Plugin run: " + key);
+        return MapOf({{"ok", true}, {"message", "RDP check completed"}, {"recommendations", recs}});
+    }
+
+    if (key == "credential_hygiene") {
+        int exposed = 0;
+        for (const auto &entry : m_credentials) {
+            const QVariantMap row = entry.toMap();
+            const QString exposureFlag = row.value("exposure").toString();
+            if (exposureFlag.contains("Exposed", Qt::CaseInsensitive)) {
+                ++exposed;
+            }
+        }
+        const QString msg = QString("credentialEntries=%1 exposedFlags=%2").arg(m_credentials.size()).arg(exposed);
+        appendLog("INFO", "Plugin run: " + key + " -> " + msg);
+        return MapOf({{"ok", true}, {"message", msg}, {"credentialEntries", m_credentials.size()}, {"exposedFlags", exposed}});
+    }
+
+    appendLog("INFO", "Plugin run (no-op): " + key);
+    return MapOf({{"ok", true}, {"message", "Plugin executed (no-op demo)."}});
+}
+
+QString SecurityController::knownPortTip(int port, const QString &protocol) const
+{
+    if (port <= 0 || port > 65535) {
+        return QString();
+    }
+
+    const QString proto = protocol.trimmed().isEmpty() ? "tcp/udp" : protocol.trimmed().toLower();
+
+    switch (port) {
+    case 22:
+        return QString("Port 22 (%1): SSH remote login. Exposing to Internet is high risk; prefer allowlist/VPN.").arg(proto);
+    case 80:
+        return QString("Port 80 (%1): HTTP. Prefer 443 + redirect; ensure WAF / patching.").arg(proto);
+    case 443:
+        return QString("Port 443 (%1): HTTPS. Ensure TLS config, certificates, and patching.").arg(proto);
+    case 445:
+        return QString("Port 445 (%1): SMB. Internet exposure is critical risk (wormable). Block on WAN.").arg(proto);
+    case 3389:
+        return QString("Port 3389 (%1): RDP. Internet exposure is high risk; restrict by IP + NLA + MFA/VPN.").arg(proto);
+    case 3306:
+        return QString("Port 3306 (%1): MySQL. Do not expose to Internet; bind to localhost/VPC only.").arg(proto);
+    case 5432:
+        return QString("Port 5432 (%1): PostgreSQL. Do not expose to Internet; restrict network and auth.").arg(proto);
+    case 6379:
+        return QString("Port 6379 (%1): Redis. Internet exposure is critical unless secured; prefer bind localhost.").arg(proto);
+    case 27017:
+        return QString("Port 27017 (%1): MongoDB. Avoid Internet exposure; enforce auth + network ACL.").arg(proto);
+    case 5985:
+        return QString("Port 5985 (%1): WinRM (HTTP). Avoid Internet exposure; prefer 5986 + allowlist.").arg(proto);
+    case 5986:
+        return QString("Port 5986 (%1): WinRM (HTTPS). Avoid Internet exposure; allowlist/VPN only.").arg(proto);
+    case 5900:
+        return QString("Port 5900 (%1): VNC. Avoid Internet exposure; tunnel/VPN only.").arg(proto);
+    default:
+        return QString();
+    }
+}
+
+QString SecurityController::knownProcessTip(const QString &processName) const
+{
+    const QString key = processName.trimmed().toLower();
+    if (key.isEmpty()) {
+        return QString();
+    }
+
+    if (key == "svchost.exe") {
+        return "svchost.exe: Windows service host. Multiple instances are normal; investigate unusual paths or network listeners.";
+    }
+    if (key == "lsass.exe") {
+        return "lsass.exe: Local Security Authority. Credential dumping target; high-value process (do not kill).";
+    }
+    if (key == "explorer.exe") {
+        return "explorer.exe: Windows shell. Usually trusted; unexpected child processes may be suspicious.";
+    }
+    if (key == "services.exe") {
+        return "services.exe: Service Control Manager. Core Windows process (do not kill).";
+    }
+    if (key == "wininit.exe" || key == "csrss.exe") {
+        return "Core Windows process. Termination will crash the session; treat as protected.";
+    }
+    if (key == "powershell.exe" || key == "pwsh.exe") {
+        return "PowerShell: Powerful scripting shell. High-risk when invoked by untrusted apps or with encoded commands.";
+    }
+    if (key == "cmd.exe" || key == "wscript.exe" || key == "cscript.exe" || key == "mshta.exe") {
+        return "Scripting/command runtime. Frequently abused by malware; verify parent process and command line.";
+    }
+
+    return QString();
 }
 
 void SecurityController::hardenFirewall()

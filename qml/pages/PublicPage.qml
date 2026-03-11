@@ -160,6 +160,7 @@ ScrollView {
                 value: String(root.countByStatus("Exposed"))
                 tone: value !== "0" ? "danger" : "success"
                 Layout.fillWidth: true
+                tip: "Exposed: based on your WAN/NAT/tunnel inputs, the port may be reachable from the Internet (demo heuristic)."
             }
 
             MetricCard {
@@ -168,6 +169,7 @@ ScrollView {
                 value: String(root.countByStatus("Potential"))
                 tone: value !== "0" ? "warning" : "success"
                 Layout.fillWidth: true
+                tip: "Potential: there are conditions that could expose the service; verify firewall/NAT/tunneling."
             }
 
             MetricCard {
@@ -176,6 +178,7 @@ ScrollView {
                 value: String(root.countByStatus("NotExposed"))
                 tone: "normal"
                 Layout.fillWidth: true
+                tip: "Not Exposed: no direct Internet reachability detected by the current inputs (demo)."
             }
         }
 
@@ -183,6 +186,7 @@ ScrollView {
             Layout.fillWidth: true
             title: I18n.tr("公网（公网暴露判定）", "Public (Exposure)")
             icon: Icons.exposure
+            tip: "Provide WAN/public IPs and mark local public IPs to improve exposure assessment."
 
             Label {
                 Layout.fillWidth: true
@@ -198,6 +202,7 @@ ScrollView {
                 placeholderText: I18n.tr("输入你的公网 IP（WAN，可多个，用逗号/空格分隔）", "Enter your public IPs (WAN; multiple allowed, comma/space separated)")
                 text: Config.wanIps
                 onEditingFinished: Config.wanIps = text.trim()
+                tip: "Example: 203.0.113.10, 198.51.100.2 (multiple allowed)."
             }
 
             RowLayout {
@@ -212,6 +217,7 @@ ScrollView {
                 StatusTag {
                     text: root.isDirectPublic() ? I18n.tr("是", "Yes") : I18n.tr("否（NAT）", "No (NAT)")
                     tone: root.isDirectPublic() ? "warning" : "normal"
+                    tip: "Direct public means a WAN IP is assigned to a local NIC; otherwise it is likely behind NAT."
                 }
 
                 Label {
@@ -221,6 +227,11 @@ ScrollView {
                         : I18n.tr("公网 IP 不在本机网卡上（通常由路由器持有）", "WAN IP not on local NIC (usually held by router)")
                     color: Theme.textSecondary
                     elide: Text.ElideRight
+                    ToolTip.delay: 350
+                    ToolTip.timeout: 8000
+                    HoverHandler { id: directExplainHover }
+                    ToolTip.visible: directExplainHover.hovered
+                    ToolTip.text: "This affects whether listening ports are directly reachable from the Internet."
                 }
             }
 
@@ -271,6 +282,7 @@ ScrollView {
             Layout.fillWidth: true
             title: I18n.tr("NAT / 端口转发 / 内网穿透", "NAT / Port Forwarding / Tunneling")
             icon: Icons.network
+            tip: "Configure NAT forwarding/DMZ/tunneling inputs so the exposure heuristic can evaluate risk."
 
             RowLayout {
                 Layout.fillWidth: true
@@ -280,18 +292,21 @@ ScrollView {
                     text: I18n.tr("已配置端口转发", "Port forwarding enabled")
                     checked: Config.portForwardEnabled
                     onToggled: Config.portForwardEnabled = checked
+                    tip: "If enabled, specify forwarded ports below (unless DMZ is enabled)."
                 }
 
                 ThemedSwitch {
                     text: I18n.tr("DMZ（全端口）", "DMZ (all ports)")
                     checked: Config.dmzEnabled
                     onToggled: Config.dmzEnabled = checked
+                    tip: "DMZ forwards most inbound traffic to one host; high exposure risk."
                 }
 
                 ThemedSwitch {
                     text: I18n.tr("内网穿透（FRP/NPS 等）", "Tunneling (FRP/NPS)")
                     checked: Config.tunnelEnabled
                     onToggled: Config.tunnelEnabled = checked
+                    tip: "Tunneling may expose local ports even if bound to 127.0.0.1."
                 }
             }
 
@@ -307,6 +322,7 @@ ScrollView {
                     text: Config.forwardedPortsCsv
                     enabled: Config.portForwardEnabled && !Config.dmzEnabled
                     onEditingFinished: Config.forwardedPortsCsv = text.trim()
+                    tip: "Comma-separated list, e.g. 3389,80,443"
                 }
 
                 ThemedTextField {
@@ -315,6 +331,7 @@ ScrollView {
                     text: Config.tunnelPortsCsv
                     enabled: Config.tunnelEnabled
                     onEditingFinished: Config.tunnelPortsCsv = text.trim()
+                    tip: "Comma-separated list of locally exposed ports via tunneling."
                 }
             }
         }
@@ -323,6 +340,7 @@ ScrollView {
             Layout.fillWidth: true
             title: I18n.tr("公网暴露评估（基于输入）", "Exposure Assessment (based on your inputs)")
             icon: Icons.port
+            tip: "This is a heuristic view; confirm with router/firewall configuration and external scanning."
 
             Repeater {
                 model: Security.ports
@@ -338,17 +356,33 @@ ScrollView {
                         spacing: 10
 
                         Label {
+                            id: portLabel
                             text: modelData.protocol + ":" + modelData.port
                             color: Theme.textPrimary
                             font.bold: true
                             Layout.preferredWidth: 120
+
+                            readonly property string tipText: Security.knownPortTip(parseInt(modelData.port), modelData.protocol)
+                            HoverHandler { id: portHover }
+                            ToolTip.delay: 350
+                            ToolTip.timeout: 8000
+                            ToolTip.visible: portHover.hovered && portLabel.tipText.length > 0
+                            ToolTip.text: portLabel.tipText
                         }
 
                         Label {
+                            id: procLabel
                             text: modelData.process + " | " + modelData.localAddress
                             color: Theme.textSecondary
                             Layout.fillWidth: true
                             elide: Text.ElideRight
+
+                            readonly property string tipText: Security.knownProcessTip(modelData.process)
+                            HoverHandler { id: procHover }
+                            ToolTip.delay: 350
+                            ToolTip.timeout: 8000
+                            ToolTip.visible: procHover.hovered && procLabel.tipText.length > 0
+                            ToolTip.text: procLabel.tipText
                         }
 
                         StatusTag {
@@ -360,6 +394,7 @@ ScrollView {
                                 : root.exposureStatus(modelData) === "Potential" ? "warning"
                                 : root.exposureStatus(modelData) === "NotExposed" ? "success"
                                 : "normal"
+                            tip: "Exposure is computed from WAN/NAT/tunneling inputs + bind scope + inbound firewall heuristic (demo)."
                         }
 
                         StatusTag {
@@ -367,6 +402,7 @@ ScrollView {
                             tone: modelData.risk === "Critical" ? "danger"
                                 : modelData.risk === "High" ? "warning"
                                 : modelData.risk === "Low" ? "success" : "normal"
+                            tip: "Risk is derived from port type and runtime hints (demo)."
                         }
 
                         ThemedButton {
